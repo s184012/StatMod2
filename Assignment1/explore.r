@@ -1,6 +1,4 @@
 library('tidyverse')
-#setwd('/Users/OscarBP/Documents/5. DTU noter/Semester 6/02424/Assignments/StatMod2/Assignment1')
-
 dat <- read.table("dioxin.csv", sep=',', head=TRUE)
 
 alpha <- 0.05
@@ -16,4 +14,11 @@ alpha <- 0.05
 #Active variables
 
 
-str(dat)
+dat %>%
+    filter(
+        TIME == 1
+    ) %>%
+    ggplot(aes(x=DIOX)) +
+    geom_density() +
+    facet_grid(cols = vars(PLANT), rows = vars(LAB))
+
