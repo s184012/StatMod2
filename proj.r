@@ -1,3 +1,4 @@
+rm(list=ls())
 library( GGally)
 library(car)
 library(caret)
@@ -6,48 +7,105 @@ print(sapply(data, typeof))
 data <- as.data.frame(unclass(data),stringsAsFactors = TRUE)
 data$TIME = as.factor(data$TIME)
 print(sapply(data, typeof))
+m = colMeans(data[c(1:2,9:21)], na.rm = T)
+std = sapply(data[,c(1:2,9:21)],sd, na.rm = T)
 preproc = preProcess(data, method = "knnImpute")
 dat = predict(preproc, data)
 dat$PRSEK[15:16] = c("L","L")
 sum(is.na(dat))
-attach(data)
+m = unname(m)
+std = unname(std)
+rep.row<-function(x,n){
+  matrix(rep(x,each=n),nrow=n)
+}
+m = rep.row(m, 57)
+std = rep.row(std, 57)
+dat[,c(1:2,9:21)] = dat[,c(1:2,9:21)]*std + m
+attach(dat)
 ggpairs(data = dat, columns = c(2,9:21), title ="Relationships between predictors & response",
        lower = list(continuous=wrap("points", alpha = 0.5, size=0.1)))
-mod_1 = lm(DIOX ~ PLANT + TIME + LAB + LOAD + OXYGEN + PRSEK)
-cor(mod_1)
+
+
+
+mod_1 = lm(DIOX ~ PLANT + TIME + LAB + LOAD + OXYGEN + PRSEK, data = dat)
 summary(mod_1)
-AIC(mod_1); #very high akaike index, we have to reduce it
-mod_2 = step( mod_1, direction = "backward" , k = log(length(DIOX)), trace = T);
-summary(mod_2)
-mod_3 = step( mod_1, direction = "backward" , k = 2, trace = T);
-summary(mod_3)
+par(mfrow=c(2,2))
+plot(mod_1)
+#bad model, studentized residuals are monotone
+#based on the plots, we try a log-transform on DIOX
+mod_1_tr = lm(log(DIOX) ~ PLANT + TIME + LAB + LOAD + OXYGEN + PRSEK)
+summary(mod_1_tr)
+par(mfrow=c(2,2))
+plot(mod_1_tr)
 
-#p-value of 0.1, could be acceptable
+anova(mod_1_tr) ## Type I
+Anova(mod_1_tr,type="II")
+drop1(mod_1_tr,test="F")
+fit1 <- update(mod_1_tr,.~.-PRSEK)
+drop1(fit1,test="F")
+par(mfrow=c(2,2))
+plot(fit1)
+anova(mod_1_tr, fit1) #same result that we got in model reduction
 
-mod_1rev = lm(DIOX ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT + LOAD + OXYGEN + PRSEK, data = dat)
+confint(fit1)
+
+#### END OF 2
+
+
+## START OF 3
+
+
+
+mod_1rev = lm(DIOX ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT, data = dat)
 summary(mod_1rev)
-mod_2rev = step( mod_1rev, direction = "backward" , k = log(length(DIOX)), trace = T);
-mod_3rev = step( mod_1rev, direction = "backward" , k = 2, trace = T);
-summary(mod_3rev)
-# we notice that the measured active variables are removed
+par(mfrow=c(2,2))
+plot(mod_1rev)
+anova(mod_1rev) ## Type I
+Anova(mod_1rev,type="II")
+drop1(mod_1rev,test="F")
+mod_2rev <- update(mod_1rev,.~.-QRAT)
+drop1(mod_2rev,test="F")
+mod_3rev <- update(mod_2rev,.~.-O2COR)
+drop1(mod_3rev,test="F")
+mod_4rev <- update(mod_3rev,.~.-TIME)
+drop1(mod_4rev,test="F")
+mod_5rev <- update(mod_4rev,.~.-LAB)
+drop1(mod_5rev,test="F")
 
-#Using the model with the measured active variables, predict the dioxin
-#emission in the first visit to the RENO_N (2) plant, analysed in the KK(1)
-#laboratory with O2COR = 0.5, NEFFEKT = -0.01 and QRAT = 0.5
+summary(mod_5rev)
+par(mfrow=c(2,2))
+plot(mod_5rev)
 
-#We use mod_3rev, so we don't need QRAT and 02COR
-modi = lm(DIOX ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT)
-summary(modi)
-modir = lm(DIOX ~ PLANT + TIME + LAB + NEFFEKT + QRAT)
-summary(modir)
-modiro = lm(DIOX ~ PLANT + TIME + LAB + NEFFEKT )
-summary(modiro)
-#even the manual elimination gives back the result we wanted, hence
-v = c(2)
+
+### END OF 3
+
+### START OF 4
 
 new_data = data.frame(PLANT = factor("RENO_N", levels = levels(PLANT)), TIME = factor("1", levels = levels(TIME)), LAB = factor("KK", levels = levels(LAB)), NEFFEKT = c(-0.01))
-diox_pred = predict(mod_3rev, newdata = new_data, interval = "confidence", se = TRUE)
+diox_pred = predict(mod_5rev, newdata = new_data, interval = "confidence", se = TRUE)
+diox_pred1 = predict(mod_3rev, newdata = new_data, interval = "confidence", se = TRUE)
+diox_pred1$fit
 diox_pred$fit
+#should we talk about that
+### END OF 4
+
+### START OF 5
+# REDUCE NEFFEKT
+
+### END OF 5
+
+
+### START OF 6
+
+#CONSIDERATIONS
+#ANOVA FOR FUN
+
+### END OF 6
+
+### START OF 7
+
+
+
 
 ##
 dev.new()
@@ -127,3 +185,5 @@ summary( gl )
 # R squared is much better than before
 modelg = step( mod, direction = "backward" , k = 2, trace = T);
 summary(modelg)
+
+### END OF 7
