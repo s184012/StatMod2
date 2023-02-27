@@ -65,28 +65,19 @@ Anova(mod_1rev,type="II")
 drop1(mod_1rev,test="F")
 mod_2rev <- update(mod_1rev,.~.-QRAT)
 drop1(mod_2rev,test="F")
-mod_3rev <- update(mod_2rev,.~.-O2COR)
-drop1(mod_3rev,test="F")
-mod_4rev <- update(mod_3rev,.~.-TIME)
-drop1(mod_4rev,test="F")
-mod_5rev <- update(mod_4rev,.~.-LAB)
-drop1(mod_5rev,test="F")
-
-summary(mod_5rev)
+summary(mod_2rev)
 par(mfrow=c(2,2))
-plot(mod_5rev)
+plot(mod_2rev)
 
 
 ### END OF 3
 
 ### START OF 4
 
-new_data = data.frame(PLANT = factor("RENO_N", levels = levels(PLANT)), TIME = factor("1", levels = levels(TIME)), LAB = factor("KK", levels = levels(LAB)), NEFFEKT = c(-0.01))
-diox_pred = predict(mod_5rev, newdata = new_data, interval = "confidence", se = TRUE)
-diox_pred1 = predict(mod_3rev, newdata = new_data, interval = "confidence", se = TRUE)
-diox_pred1$fit
+new_data = data.frame(PLANT = factor("RENO_N", levels = levels(PLANT)), TIME = factor("1", levels = levels(TIME)), LAB = factor("KK", levels = levels(LAB)),O2COR =C (0.5), NEFFEKT = c(-0.01))
+diox_pred = predict(mod_2rev, newdata = new_data, interval = "confidence", se = TRUE)
 diox_pred$fit
-#should we talk about that
+#should we talk about that (DIFFERENCE WITH AKAIKE)
 ### END OF 4
 
 ### START OF 5
