@@ -1,5 +1,4 @@
-library( GGally)
-install.packages("car")
+library(GGally)
 library(car)
 data = read.csv("dioxin.csv", header = TRUE, sep = ",");
 print(sapply(data, typeof))
