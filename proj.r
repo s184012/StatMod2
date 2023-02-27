@@ -56,7 +56,7 @@ confint(fit1)
 
 
 
-mod_1rev = lm(DIOX ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT, data = dat)
+mod_1rev = lm(log(DIOX) ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT, data = dat)
 summary(mod_1rev)
 par(mfrow=c(2,2))
 plot(mod_1rev)
