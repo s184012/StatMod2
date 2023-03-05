@@ -2,6 +2,7 @@ rm(list=ls())
 library( GGally)
 library(car)
 library(caret)
+library(nlme)
 data = read.csv("dioxin.csv", header = TRUE, sep = ",")
 print(sapply(data, typeof))
 data <- as.data.frame(unclass(data),stringsAsFactors = TRUE)
@@ -101,8 +102,64 @@ diox_pred$fit
 ##
 dev.new()
 #Complete model
-mod = lm(DIOX ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT + LOAD + OXYGEN + PRSEK + QROEG + TOVN + TROEG + POVN + CO2 + CO + SO2 + HCL + H2O, data = dat)
+mod = lm(log(DIOX) ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT + QROEG + TOVN + TROEG + POVN + 
+           CO2 + CO + SO2 + HCL + H2O + O2COR:CO2 + O2COR:H2O + TROEG:QROEG + CO2:H2O, data = dat)
 summary(mod)
+par(mfrow=c(2,2))
+plot(mod)
+Anova(mod,type="II")
+drop1(mod,test="F")
+mod2 <- update(mod,.~.-CO)
+drop1(mod2,test="F")
+mod3 <- update(mod2,.~.-QROEG:TROEG)
+drop1(mod3,test="F")
+mod4 <- update(mod3,.~.-QROEG)
+drop1(mod4,test="F")
+mod5 <- update(mod4,.~.-TROEG)
+drop1(mod5,test="F")
+mod6 <- update(mod5,.~.-POVN)
+drop1(mod6,test="F")
+mod7 <- update(mod6,.~.-O2COR:H2O)
+drop1(mod7,test="F")
+mod8 <- update(mod7,.~.-O2COR:CO2)
+drop1(mod8,test="F")
+mod9 <- update(mod8,.~.-CO2:H2O)
+drop1(mod9,test="F")
+mod10 <- update(mod9,.~.-O2COR)
+drop1(mod10,test="F")
+mod11 <- update(mod10,.~.-CO2)
+drop1(mod11,test="F")
+mod12 <- update(mod11,.~.-QRAT)
+drop1(mod12,test="F")
+mod13 <- update(mod12,.~.-TOVN)
+drop1(mod13,test="F")
+par(mfrow=c(2,2))
+plot(mod13)
+t = as.numeric(dat$LAB)
+w = 1/t;
+modw = lm(log(DIOX) ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT + QROEG + TOVN + TROEG + POVN + 
+           CO2 + CO + SO2 + HCL + H2O + O2COR:CO2 + O2COR:H2O + TROEG:QROEG + CO2:H2O, data = dat, weights = w)
+summary(modw)
+par(mfrow=c(2,2))
+plot(modw)
+V1 = varIdent(c( t = 1),form = ~ 1)
+modw1 = gls(log(DIOX) ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT + QROEG + TOVN + TROEG + POVN + 
+            CO2 + CO + SO2 + HCL + H2O + O2COR:CO2 + O2COR:H2O + TROEG:QROEG + CO2:H2O, data = dat, method = "REML", weights = V1)
+summary(modw1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 par(mar = c(1, 1, 1, 1))
 plot( mod$fit, mod$res, xlab = "Fitted", ylab = "Residuals",
       main = "Residuals vs Fitted Values", pch = 16 )
