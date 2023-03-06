@@ -1,36 +1,80 @@
+### Load libraries
 rm(list=ls())
 library( GGally)
 library(car)
 library(caret)
 library(nlme)
-data = read.csv("dioxin.csv", header = TRUE, sep = ",")
-print(sapply(data, typeof))
-data <- as.data.frame(unclass(data),stringsAsFactors = TRUE)
-data$TIME = as.factor(data$TIME)
-print(sapply(data, typeof))
-m = colMeans(data[c(1:2,9:21)], na.rm = T)
-std = sapply(data[,c(1:2,9:21)],sd, na.rm = T)
-preproc = preProcess(data, method = "knnImpute")
-dat = predict(preproc, data)
+
+### Load data and check data types
+dat = read.csv("dioxin.csv", header = TRUE, sep = ",")
+print(sapply(dat, typeof))
+
+# Convert categorical variables to factor variables
+dat <- as.data.frame(unclass(dat), stringsAsFactors = TRUE)
+dat$TIME = as.factor(dat$TIME)
+
+# Fill in the two NA PRSEK values
 dat$PRSEK[15:16] = c("L","L")
-sum(is.na(dat))
-m = unname(m)
-std = unname(std)
-rep.row<-function(x,n){
-  matrix(rep(x,each=n),nrow=n)
-}
-m = rep.row(m, 57)
-std = rep.row(std, 57)
-dat[,c(1:2,9:21)] = dat[,c(1:2,9:21)]*std + m
+
+# Remove remaining observations with NA values and check that
+# data has been altered as expected
+print(dim(dat))
+print(sum(is.na(dat)))
+dat <- na.omit(dat)
+print(dim(dat))
+print(sum(is.na(dat)))
+print(sapply(dat, typeof))
 attach(dat)
+
+### Deprecated KNN fill-in of NA values
+# m = colMeans(data[c(1:2,9:21)], na.rm = T)
+# std = sapply(data[,c(1:2,9:21)],sd, na.rm = T)
+# preproc = preProcess(data, method = "knnImpute")
+# dat = predict(preproc, data)
+# dat$PRSEK[15:16] = c("L","L")
+# sum(is.na(dat))
+# m = unname(m)
+# std = unname(std)
+# rep.row<-function(x,n){
+#   matrix(rep(x,each=n),nrow=n)
+# }
+# m = rep.row(m, 57)
+# std = rep.row(std, 57)
+# dat[,c(1:2,9:21)] = dat[,c(1:2,9:21)]*std + m
+
+
+### EXERCISE 1 (Not complete in this script)
+# Plot predictors and response
 ggpairs(data = dat, columns = c(2,9:21), title ="Relationships between predictors & response",
        lower = list(continuous=wrap("points", alpha = 0.5, size=0.1)))
 
 
-
+### EXERCISE 2
+# Fit initial model
 mod_1 = lm(DIOX ~ PLANT + TIME + LAB + LOAD + OXYGEN + PRSEK, data = dat)
 summary(mod_1)
-par(mfrow=c(2,2))
+
+# Issues with NA parameter estimates due to singularities ->
+# Investigate colinearity with the alias function
+alias(mod_1)
+
+# Colinearity between LOADN and OXYGENN/PRSEKN.
+# One possible reason: Observations with identical explanatory variables but
+#                      different response values due to the limited amount of
+#                      variables considered
+# Solution: Remove observations with identical explanatory variables
+# (Reconsider if this is necessary or even "correct" to do)
+dat_2 <- dat[c("DIOX", "PLANT", "TIME", "LAB", "LOAD", "OXYGEN", "PRSEK")]
+dat_2 <- dat_2[!duplicated(dat_2[c("PLANT", "TIME", "LAB", "LOAD", "OXYGEN", "PRSEK")]), ]
+mod_2 <- lm(DIOX ~ PLANT + TIME + LAB + LOAD + OXYGEN + PRSEK, data = dat_2)
+summary(mod_2)
+alias(mod_2)
+
+# Issue is still present because LOAD, PRSEK and OXYGEN are always N at
+# the same time - meaning they are perfectly colinear.
+# Solution: Ignore it as the LOADN variable takes care of it?
+
+corpar(mfrow=c(2,2))
 plot(mod_1)
 #bad model, studentized residuals are monotone
 #based on the plots, we try a log-transform on DIOX
