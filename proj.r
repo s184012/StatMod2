@@ -27,7 +27,7 @@ ggpairs(data = dat, columns = c(2,9:21), title ="Relationships between predictor
        lower = list(continuous=wrap("points", alpha = 0.5, size=0.1)))
 
 
-
+#2. Simple model reduction
 mod_1 = lm(DIOX ~ PLANT + TIME + LAB + LOAD + OXYGEN + PRSEK, data = dat)
 summary(mod_1)
 par(mfrow=c(2,2))
