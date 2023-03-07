@@ -91,10 +91,12 @@ fit1 <- update(mod_1_tr,.~.-PRSEK)
 drop1(fit1,test="F")
 par(mfrow=c(2,2))
 plot(fit1)
+
 anova(mod_1_tr, fit1) #same result that we got in model reduction
 
 confint(fit1)
 
+save(fit1, file = 'model_ex2.rds')
 #### END OF 2
 
 
@@ -114,8 +116,9 @@ drop1(mod_2rev,test="F")
 summary(mod_2rev)
 par(mfrow=c(2,2))
 plot(mod_2rev)
+save(mod_2rev, file="model_ex3.rds")
 
-
+mod_2rev
 ### END OF 3
 
 ### START OF 4
