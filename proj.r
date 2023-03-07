@@ -53,7 +53,17 @@ ggpairs(data = dat, columns = c(2,9:21), title ="Relationships between predictor
 # Fit initial model
 mod_1 = lm(DIOX ~ PLANT + TIME + LAB + LOAD + OXYGEN + PRSEK, data = dat)
 summary(mod_1)
+par(mfrow=c(2,2))
+plot(mod_1)
 
+
+#saveFig <- TRUE
+#if(saveFig == TRUE){pdf("log_MODEL1_residuals.pdf", width = 10*0.8, height = 6*0.8)}
+#plot(mod_1)
+#if(saveFig == TRUE){dev.off()}
+#saveFig <- FALSE
+
+######################################################################
 # Issues with NA parameter estimates due to singularities ->
 # Investigate colinearity with the alias function
 alias(mod_1)
@@ -69,29 +79,43 @@ dat_2 <- dat_2[!duplicated(dat_2[c("PLANT", "TIME", "LAB", "LOAD", "OXYGEN", "PR
 mod_2 <- lm(DIOX ~ PLANT + TIME + LAB + LOAD + OXYGEN + PRSEK, data = dat_2)
 summary(mod_2)
 alias(mod_2)
-
+######################################################################
 # Issue is still present because LOAD, PRSEK and OXYGEN are always N at
 # the same time - meaning they are perfectly colinear.
 # Solution: Ignore it as the LOADN variable takes care of it?
 
-corpar(mfrow=c(2,2))
+par(mfrow=c(2,2))
 plot(mod_1)
 #bad model, studentized residuals are monotone
 #based on the plots, we try a log-transform on DIOX
-mod_1_tr = lm(log(DIOX) ~ PLANT + TIME + LAB + LOAD + OXYGEN + PRSEK, data = dat)
+mod_1_tr = lm(log(DIOX) ~ PLANT + TIME + LAB   + OXYGEN +LOAD+ PRSEK, data = dat)
 summary(mod_1_tr)
 par(mfrow=c(2,2))
 plot(mod_1_tr)
 
+saveFig <- TRUE
+if(saveFig == TRUE){pdf("log_MODEL1_residuals.pdf", width = 10*0.8, height = 10*0.8)}
+par(mfrow=c(2,2))
+plot(mod_1_tr)
+if(saveFig == TRUE){dev.off()}
+saveFig <- FALSE
 
-anova(mod_1_tr) ## Type I
+
+#anova(mod_1_tr) ## Type I
 Anova(mod_1_tr,type="II")
-drop1(mod_1_tr,test="F")
+#drop1(mod_1_tr,test="F")
 fit1 <- update(mod_1_tr,.~.-PRSEK)
-drop1(fit1,test="F")
+#drop1(fit1,test="F")
+Anova(fit1,type="II")
+summary(fit1)
+
+saveFig <- TRUE
+if(saveFig == TRUE){pdf("finalMODEL1_residuals.pdf", width = 10*0.8, height = 10*0.8)}
 par(mfrow=c(2,2))
 plot(fit1)
-anova(mod_1_tr, fit1) #same result that we got in model reduction
+if(saveFig == TRUE){dev.off()}
+saveFig <- FALSE
+#anova(mod_1_tr, fit1) #same result that we got in model reduction
 
 confint(fit1)
 
@@ -99,18 +123,27 @@ confint(fit1)
 
 
 ## START OF 3
+mod_1 = lm(DIOX ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT, data = dat)
+par(mfrow=c(2,2))
+plot(mod_1)
 
-
+saveFig <- TRUE
+if(saveFig == TRUE){pdf("finalMODEL2_residuals.pdf", width = 10*0.8, height = 10*0.8)}
+par(mfrow=c(2,2))
+plot(mod_2rev)
+if(saveFig == TRUE){dev.off()}
+saveFig <- FALSE
 
 mod_1rev = lm(log(DIOX) ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT, data = dat)
 summary(mod_1rev)
 par(mfrow=c(2,2))
 plot(mod_1rev)
-anova(mod_1rev) ## Type I
+#anova(mod_1rev) ## Type I
 Anova(mod_1rev,type="II")
-drop1(mod_1rev,test="F")
+#drop1(mod_1rev,test="F")
 mod_2rev <- update(mod_1rev,.~.-QRAT)
-drop1(mod_2rev,test="F")
+#drop1(mod_2rev,test="F")
+Anova(mod_2rev,type="II")
 summary(mod_2rev)
 par(mfrow=c(2,2))
 plot(mod_2rev)
