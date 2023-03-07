@@ -253,17 +253,27 @@ plot(gl)
 
 t = as.numeric(dat$LAB)
 w = 1/t;
+
 modw = lm(log(DIOX) ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT + QROEG + TOVN + TROEG + POVN + 
            CO2 + CO + SO2 + HCL + H2O + O2COR:CO2 + O2COR:H2O + TROEG:QROEG + CO2:H2O, data = dat, weights = w)
 summary(modw)
 par(mfrow=c(2,2))
 plot(modw)
 
+yhat = predict(mod13,dat, type = "response")
 
-V1 = varIdent(c( t = 1),form = ~ 1)
-modw1 = gls(log(DIOX) ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT + QROEG + TOVN + TROEG + POVN + 
-            CO2 + CO + SO2 + HCL + H2O + O2COR:CO2 + O2COR:H2O + TROEG:QROEG + CO2:H2O, data = dat, method = "REML", weights = V1)
-summary(modw1)
+
+
+l<-function(sigma){
+  v = as.numeric(dat$LAB=="KK")
+  v[dat$LAB=="KK"] = sigma[1]
+  v[dat$LAB!="KK"] = sigma[2]
+  
+  -sum(dnorm(log(dat$DIOX), yhat, v, log = T))
+}
+
+nlminb(c(1,4), l, lower=c(0, 0), upper=c(Inf, Inf))
+-logLik(mod13)
 
 
 # BONUS---> REDUCE MODEL WITH AIC/BIC
