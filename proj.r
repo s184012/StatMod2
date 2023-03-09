@@ -150,52 +150,57 @@ diox_pred$fit
 ##
 dev.new()
 #Complete model
-mod = lm(log(DIOX) ~ PLANT + TIME + LAB +  (O2COR + NEFFEKT + QRAT)^2 + QROEG + TOVN + TROEG + POVN + 
-           CO2 + CO + SO2 + HCL + H2O + PLANT:O2COR + O2COR:CO2  + O2COR:H2O + TROEG:QROEG + CO2:H2O + QROEG:TOVN, data = dat)
+
+mod = lm(log(DIOX) ~ PLANT + TIME + LAB  #BLOCKS
+         + O2COR + NEFFEKT + QRAT #ACTIVE
+         + QROEG + TOVN + TROEG + POVN + CO2 + CO + SO2 + HCL + H2O #PASSIVE
+         + PLANT:O2COR #INTERACTION PLANT O2
+         + O2COR:CO2 + O2COR:H2O #INTERACTION O2 PASSIVE
+         + TROEG:QROEG + CO2:H2O + QROEG:TOVN #INTERATION PASSIVE
+         , data = dat)
 summary(mod)
+
+saveFig<- TRUE
+if(saveFig == TRUE){pdf("MODEL7_UNREDUCED.pdf", width = 10*0.8, height = 10*0.8)}
 par(mfrow=c(2,2))
 plot(mod)
+if(saveFig == TRUE){dev.off()}
 Anova(mod,type="II")
 drop1(mod,test="F")
-mod2 <- update(mod,.~.-O2COR:NEFFEKT)
+mod2 <- update(mod,.~.-POVN)
 drop1(mod2,test="F")
-mod3 <- update(mod2,.~.-POVN)
+mod3 <- update(mod2,.~.-QRAT)
 drop1(mod3,test="F")
-mod4 <- update(mod3,.~.-O2COR:QRAT)
+mod4 <- update(mod3,.~.-CO)
 drop1(mod4,test="F")
-mod5 <- update(mod4,.~.-NEFFEKT:QRAT)
+mod5 <- update(mod4,.~.-PLANT:O2COR)
 drop1(mod5,test="F")
-mod6 <- update(mod5,.~.-QRAT)
+mod6 <- update(mod5,.~.-QROEG:TOVN)
 drop1(mod6,test="F")
-mod7 <- update(mod6,.~.-CO)
+mod7 <- update(mod6,.~.-QROEG:TROEG)
 drop1(mod7,test="F")
-mod8 <- update(mod7,.~.-QROEG:TOVN)
+mod8 <- update(mod7,.~.-QROEG)
 drop1(mod8,test="F")
-mod9 <- update(mod8,.~.-PLANT:O2COR)
+mod9 <- update(mod8,.~.-TROEG)
 drop1(mod9,test="F")
-mod10 <- update(mod9,.~.-QROEG:TROEG)
+mod10 <- update(mod9,.~.-TOVN)
 drop1(mod10,test="F")
-mod11 <- update(mod10,.~.-QROEG)
+mod11 <- update(mod10,.~.-O2COR:H2O)
 drop1(mod11,test="F")
-mod12 <- update(mod11,.~.-TROEG)
+mod12 <- update(mod11,.~.-O2COR:CO2)
 drop1(mod12,test="F")
-mod13 <- update(mod12,.~.-TOVN)
+mod13 <- update(mod12,.~.-CO2:H2O)
 drop1(mod13,test="F")
-mod14 <- update(mod13,.~.-O2COR:H2O)
+mod14 <- update(mod13,.~.-H2O)
 drop1(mod14,test="F")
-mod15 <- update(mod14,.~.-O2COR:CO2)
+mod15 <- update(mod14,.~.-CO2)
 drop1(mod15,test="F")
-mod16 <- update(mod15,.~.-CO2:H2O)
-drop1(mod16,test="F")
-mod17 <- update(mod16,.~.-H2O)
-drop1(mod17,test="F")
-mod18 <- update(mod17,.~.-CO2)
-drop1(mod18,test="F")
 summary(mod15)
+if(saveFig == TRUE){pdf("MODEL7_REDUCED.pdf", width = 10*0.8, height = 10*0.8)}
 par(mfrow=c(2,2))
 plot(mod15)
+if(saveFig == TRUE){dev.off()}
 anova(mod, mod15)
-shapiro.test(mod15$residuals) #data is normal
 hist( mod15$residuals, 10, probability = TRUE, col = 'lavender', main = 'residuals' )
 X = model.matrix( mod15)
 lev = hat(X)
@@ -240,6 +245,7 @@ Cdist = cooks.distance( mod13 )
 watchout_ids_Cdist = which( Cdist > 4/(n-p) )
 watchout_Cdist = Cdist[ watchout_ids_Cdist ]
 watchout_Cdist
+if(saveFig == TRUE){pdf("Influ.pdf", width = 10*0.8, height = 10*0.8)}
 par( mfrow = c( 1, 3 ) )
 plot( mod13$fitted.values, Cdist, pch = 16, xlab = 'Fitted values',
       ylab = 'Cooks Distance', main = 'Cooks Distance' )
@@ -251,29 +257,32 @@ points( mod13$fitted.values[ watchout_ids_stud ], stud[ watchout_ids_stud ],
         col = 'pink', pch = 16 )
 plot( mod13$fitted.values, lev, pch = 16, xlab = 'Fitted values',
       ylab = 'Leverages', main = 'Leverages' )
+
 points( mod13$fitted.values[ watchout_ids_lev ], lev[ watchout_ids_lev ],
         col = 'orange', pch = 16 )
+if(saveFig == TRUE){dev.off()}
+
 id_to_keep = !( 1:n %in% watchout_ids_Cdist )
 gl = lm( log(DIOX) ~ PLANT + TIME + LAB + NEFFEKT +  SO2 + HCL + H2O, dat[ id_to_keep, ] )
 summary( gl )
 par(mfrow=c(2,2))
 plot(gl)
 
+summary(mod15)
+
 #the improvement obtained not considering the points violating the CookDistance 
 # "boundary" is not worth it. We had a good model even before.
 
-t = as.numeric(dat$LAB)
-w = 1/t;
+attach(dat)
 
-modw = lm(log(DIOX) ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT + QROEG + TOVN + TROEG + POVN + 
-           CO2 + CO + SO2 + HCL + H2O + O2COR:CO2 + O2COR:H2O + TROEG:QROEG + CO2:H2O, data = dat, weights = w)
-summary(modw)
-par(mfrow=c(2,2))
-plot(modw)
+yhat = predict(mod15,dat, type = "response")
 
-yhat = predict(mod13,dat, type = "response")
-
-
+V = varIdent(form = ~1|LAB)
+mo = gls(log(DIOX) ~ PLANT + TIME + LAB + O2COR + NEFFEKT + SO2 + HCL, data = dat,
+    weights = V, method = "ML")
+intervals(mo)
+summary(mod15)
+summary(mo)
 
 l<-function(sigma){
   v = as.numeric(dat$LAB=="KK")
@@ -284,7 +293,7 @@ l<-function(sigma){
 }
 
 nlminb(c(1,4), l, lower=c(0, 0), upper=c(Inf, Inf))
-logLik(mod13)
+logLik(mod15)
 
 
 # BONUS---> REDUCE MODEL WITH AIC/BIC
@@ -294,8 +303,8 @@ drop1(modela, test = "F")
 modelb = step( mod, direction = "backward" , k = log(n), trace = T);
 summary(modelb) #0.8744
 drop1(modelb, test = "F")
-summary(mod13) #0.8596
-anova(modela, modelb, mod13) 
+summary(mod15) #0.8596
+anova(modela, modelb, mod15) 
 #our model is significantly different than the ones obtained with AIC/BIC
 #when it comes to anova test (nested models)
 #But R^2 is not that different
