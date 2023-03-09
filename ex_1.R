@@ -2,8 +2,10 @@ library(tidyverse)
 library(kableExtra)
 library(patchwork)
 library(scales)
+library(janitor)
 
 load('data.rds')
+
 
 save_table = function(table, name) {
   cat(
@@ -17,31 +19,32 @@ save_fig = function(name, figure = last_plot()) {
 }
 # Missing Values ----------------------------------------------------------
 
-raw |>
-  filter(if_any(everything(), is.na))
+all_missing <- raw |>
+  filter(if_any(everything(), is.na)) |> 
+  t() |>
+  row_to_names(1)
+save_table(all_missing, name = "all_missing")
 
 prsek_missing <- raw |> 
   filter(is.na(PRSEK)) |> 
   select(PLANT, LAB, TIME, PRSEK, O2, O2COR) |> 
-  show() |> 
   save_table("prsek_missing_values")
 
 prsek_missing_summary <- raw |> 
-  select(PLANT, PRSEK, O2, O2COR) |> 
-  filter(PLANT == 'KARA') |> 
-  group_by(PRSEK) |> 
+  select(LAB, PLANT, PRSEK, O2, O2COR) |>
+  filter(PLANT == 'KARA') |>
+  group_by(PRSEK) |>
   summarise(
     mean_O2 = mean(O2),
     mean_O2COR = mean(O2COR)
-  ) |> 
-  print() |> 
-  save_table('prsek_missing_summary')
+  ) |>
+save_table('prsek_missing_summary')
+  print()
 
 passive_missing <- raw |> 
   select(PLANT, LAB, TIME, CO, SO2) |> 
-  filter(is.na(CO) | is.na(SO2)) |> 
-  show() |> 
-  save_table('passive_missing')
+  filter(is.na(CO) | is.na(SO2))
+save_table(passive_missing, 'passive_missing')
   
 
 # Summary Stats -----------------------------------------------------------
@@ -153,14 +156,16 @@ log_pred_qq <- data |>
   )
 
 pred_dist <- pred_hist / pred_qq
+pred_dist
 save_fig('prediction_dist', figure = pred_dist)
 non_trans <- pred_hist / pred_qq
 trans <- log_pred_hist / log_pred_qq
 non_trans | trans 
 ggsave(file = 'prediction_and_log_dist.pdf', path = 'figs', width=10*0.8, height = 6*0.8)
 
-
+par(mfrow=c(1,1))
 trans = MASS::boxcox(data$DIOX ~ 1)
+save_fig('boxcox', trans)
 trans$x[which.max(trans$y)]
 
 # DIOX emissions for different plants
@@ -198,6 +203,31 @@ data |>
     labels=label_log(),
     breaks = trans_breaks("log10", function(x) 10^x)
   )
+
+data |> 
+  ggplot(aes(x = PLANT, y=DIOX, color=LAB)) +
+  geom_boxplot() + 
+  scale_y_continuous(
+    trans='log10', 
+    labels=label_log(),
+    breaks = trans_breaks("log10", function(x) 10^x)
+  )
+
+data |> 
+  pivot_longer(
+    cols = c(OXYGEN, PRSEK, LOAD),
+    names_to = 'Variable',
+    values_to = 'Level'
+  ) |> 
+  ggplot(aes(x = Level, y=DIOX, color=LAB)) +
+  geom_boxplot() + 
+  scale_y_continuous(
+    trans='log10', 
+    labels=label_log(),
+    breaks = trans_breaks("log10", function(x) 10^x)
+  ) +
+  facet_wrap(facets = vars(Variable))
+
 
 
 
@@ -310,3 +340,67 @@ active_passive_corr <- wrap_elements(ggmatrix_gtable(O2COR_passive)) +
   plot_annotation(title="Corralations between active and passive variables")
 active_passive_corr
 save_fig('active_passive_corr', active_passive_corr)
+
+
+# Interactions ------------------------------------------------------------
+
+possible_plant_o2_interaction <- data |> 
+  ggplot(aes(x = O2COR, y=DIOX, color=PLANT)) + 
+  geom_point() +
+  geom_smooth(method='lm') +
+  scale_y_continuous(trans='log10')
+possible_plant_o2_interaction
+save_fig('possible_plant_o2_interaction', possible_plant_o2_interaction)
+
+possible_plant_qrat_interaction <- data |> 
+  ggplot(aes(x = QRAT, y=DIOX, color=PLANT)) + 
+  geom_point() +
+  geom_smooth(method='lm') +
+  scale_y_continuous(trans='log10')
+possible_plant_qrat_interaction
+save_fig('possible_plant_qrat_interaction', possible_plant_qrat_interaction)
+
+data |> 
+  filter(PLANT == 'RENO_N') |> 
+  ggplot(aes(x = QRAT, y=DIOX, color=LOAD)) + 
+  geom_point() +
+  geom_smooth(method='lm') +
+  scale_y_continuous(trans='log10')
+possible_plant_qrat_interaction
+save_fig('possible_plant_qrat_interaction', possible_plant_qrat_interaction)
+
+passive_plant_interactions <- data |> 
+  pivot_longer(
+    cols=QROEG:H2O,
+    names_to = 'Variable',
+    values_to = 'Meassurement'
+  ) |> 
+  ggplot(aes(x=Meassurement, y=DIOX, color=PLANT)) +
+  geom_point() +
+  geom_smooth(method='lm') +
+  scale_y_continuous(trans='log10') +
+  facet_wrap(facets = vars(Variable), scales = 'free') +
+  labs(
+    title = 'Interaction between passive variables and PLANT',
+    x = NULL
+  )
+passive_plant_interactions
+save_fig('passive_plant_interactions', passive_plant_interactions)
+
+active_plant_interactions <- data |> 
+  pivot_longer(
+    cols=O2COR:QRAT,
+    names_to = 'Variable',
+    values_to = 'Meassurement'
+  ) |> 
+  ggplot(aes(x=Meassurement, y=DIOX, color=PLANT)) +
+  geom_point() +
+  geom_smooth(method='lm', se=F) +
+  scale_y_continuous(trans='log10') +
+  facet_wrap(facets = vars(Variable), scales = 'free') +
+  labs(
+    title = 'Interaction between active variables and PLANT',
+    x = NULL
+  )
+active_plant_interactions
+save_fig('active_plant_interactions', active_plant_interactions)

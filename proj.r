@@ -113,12 +113,12 @@ saveFig <- TRUE
 if(saveFig == TRUE){pdf("finalMODEL1_residuals.pdf", width = 10*0.8, height = 10*0.8)}
 par(mfrow=c(2,2))
 plot(fit1)
-if(saveFig == TRUE){dev.off()}
-saveFig <- FALSE
-#anova(mod_1_tr, fit1) #same result that we got in model reduction
+
+anova(mod_1_tr, fit1) #same result that we got in model reduction
 
 confint(fit1)
 
+save(fit1, file = 'model_ex2.rds')
 #### END OF 2
 
 
@@ -147,8 +147,9 @@ Anova(mod_2rev,type="II")
 summary(mod_2rev)
 par(mfrow=c(2,2))
 plot(mod_2rev)
+save(mod_2rev, file="model_ex3.rds")
 
-
+mod_2rev
 ### END OF 3
 
 ### START OF 4
@@ -180,45 +181,56 @@ diox_pred$fit
 ##
 dev.new()
 #Complete model
-mod = lm(log(DIOX) ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT + QROEG + TOVN + TROEG + POVN + 
-           CO2 + CO + SO2 + HCL + H2O + O2COR:CO2 + O2COR:H2O + TROEG:QROEG + CO2:H2O, data = dat)
+mod = lm(log(DIOX) ~ PLANT + TIME + LAB +  (O2COR + NEFFEKT + QRAT)^2 + QROEG + TOVN + TROEG + POVN + 
+           CO2 + CO + SO2 + HCL + H2O + PLANT:O2COR + O2COR:CO2  + O2COR:H2O + TROEG:QROEG + CO2:H2O + QROEG:TOVN, data = dat)
 summary(mod)
 par(mfrow=c(2,2))
 plot(mod)
 Anova(mod,type="II")
 drop1(mod,test="F")
-mod2 <- update(mod,.~.-CO)
+mod2 <- update(mod,.~.-O2COR:NEFFEKT)
 drop1(mod2,test="F")
-mod3 <- update(mod2,.~.-QROEG:TROEG)
+mod3 <- update(mod2,.~.-POVN)
 drop1(mod3,test="F")
-mod4 <- update(mod3,.~.-QROEG)
+mod4 <- update(mod3,.~.-O2COR:QRAT)
 drop1(mod4,test="F")
-mod5 <- update(mod4,.~.-TROEG)
+mod5 <- update(mod4,.~.-NEFFEKT:QRAT)
 drop1(mod5,test="F")
-mod6 <- update(mod5,.~.-POVN)
+mod6 <- update(mod5,.~.-QRAT)
 drop1(mod6,test="F")
-mod7 <- update(mod6,.~.-O2COR:H2O)
+mod7 <- update(mod6,.~.-CO)
 drop1(mod7,test="F")
-mod8 <- update(mod7,.~.-O2COR:CO2)
+mod8 <- update(mod7,.~.-QROEG:TOVN)
 drop1(mod8,test="F")
-mod9 <- update(mod8,.~.-CO2:H2O)
+mod9 <- update(mod8,.~.-PLANT:O2COR)
 drop1(mod9,test="F")
-mod10 <- update(mod9,.~.-O2COR)
+mod10 <- update(mod9,.~.-QROEG:TROEG)
 drop1(mod10,test="F")
-mod11 <- update(mod10,.~.-CO2)
+mod11 <- update(mod10,.~.-QROEG)
 drop1(mod11,test="F")
-mod12 <- update(mod11,.~.-QRAT)
+mod12 <- update(mod11,.~.-TROEG)
 drop1(mod12,test="F")
 mod13 <- update(mod12,.~.-TOVN)
 drop1(mod13,test="F")
-summary(mod13)
+mod14 <- update(mod13,.~.-O2COR:H2O)
+drop1(mod14,test="F")
+mod15 <- update(mod14,.~.-O2COR:CO2)
+drop1(mod15,test="F")
+mod16 <- update(mod15,.~.-CO2:H2O)
+drop1(mod16,test="F")
+mod17 <- update(mod16,.~.-H2O)
+drop1(mod17,test="F")
+mod18 <- update(mod17,.~.-CO2)
+drop1(mod18,test="F")
+summary(mod15)
 par(mfrow=c(2,2))
-plot(mod13)
-shapiro.test(mod13$residuals) #data is normal
-hist( mod13$residuals, 10, probability = TRUE, col = 'lavender', main = 'residuals' )
-X = model.matrix( mod13)
+plot(mod15)
+anova(mod, mod15)
+shapiro.test(mod15$residuals) #data is normal
+hist( mod15$residuals, 10, probability = TRUE, col = 'lavender', main = 'residuals' )
+X = model.matrix( mod15)
 lev = hat(X)
-p = mod13$rank;
+p = mod15$rank;
 n = length(DIOX);
 plot( mod13$fitted.values, lev, ylab = "Leverages", main = "Plot of Leverages",
       pch = 16, col = 'black' )
@@ -283,17 +295,27 @@ plot(gl)
 
 t = as.numeric(dat$LAB)
 w = 1/t;
+
 modw = lm(log(DIOX) ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT + QROEG + TOVN + TROEG + POVN + 
            CO2 + CO + SO2 + HCL + H2O + O2COR:CO2 + O2COR:H2O + TROEG:QROEG + CO2:H2O, data = dat, weights = w)
 summary(modw)
 par(mfrow=c(2,2))
 plot(modw)
 
+yhat = predict(mod13,dat, type = "response")
 
-V1 = varIdent(c( t = 1),form = ~ 1)
-modw1 = gls(log(DIOX) ~ PLANT + TIME + LAB +  O2COR + NEFFEKT + QRAT + QROEG + TOVN + TROEG + POVN + 
-            CO2 + CO + SO2 + HCL + H2O + O2COR:CO2 + O2COR:H2O + TROEG:QROEG + CO2:H2O, data = dat, method = "REML", weights = V1)
-summary(modw1)
+
+
+l<-function(sigma){
+  v = as.numeric(dat$LAB=="KK")
+  v[dat$LAB=="KK"] = sigma[1]
+  v[dat$LAB!="KK"] = sigma[2]
+  
+  -sum(dnorm(log(dat$DIOX), yhat, v, log = T))
+}
+
+nlminb(c(1,4), l, lower=c(0, 0), upper=c(Inf, Inf))
+logLik(mod13)
 
 
 # BONUS---> REDUCE MODEL WITH AIC/BIC
