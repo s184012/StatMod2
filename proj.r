@@ -310,5 +310,4 @@ anova(modela, modelb, mod15)
 #But R^2 is not that different
 
 
-
 ### END OF 7
