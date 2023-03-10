@@ -13,19 +13,11 @@ print(sapply(raw, typeof))
 
 
 # Transform data ----------------------------------------------------------
-m = colMeans(raw[c(1:2,9:21)], na.rm = T) # Mean of numeric columns
-std = sapply(raw[,c(1:2,9:21)],sd, na.rm = T) # Std. Dev. of numeric columns
-preproc = preProcess(raw, method = "knnImpute")
-data = predict(preproc, raw)
-data$PRSEK[15:16] = c("L","L")
-sum(is.na(data))
-m = unname(m)
-std = unname(std)
-rep.row<-function(x,n){
-  matrix(rep(x,each=n),nrow=n)
-}
-m = rep.row(m, 57)
-std = rep.row(std, 57)
-data[,c(1:2,9:21)] = data[,c(1:2,9:21)]*std + m
+raw$PRSEK[15:16] = c("L","L")
 
+data = raw |> 
+  replace_na(list(PRSEK = "L")) |> 
+  filter(!if_any(everything(), function(x) is.na(x)))
+
+sum(is.na(data))
 save(data, raw, file='data.rds')

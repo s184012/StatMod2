@@ -59,7 +59,7 @@ pr_lo <- data |>
 
 ox_pr + ox_lo + pr_lo + plot_layout(guides='collect')
 
-lm_with_cor <- function(data, mapping, ..., method = "pearson") {
+|> lm_with_cor <- function(data, mapping, ..., method = "pearson") {
   x <- eval_data_col(data, mapping$x)
   y <- eval_data_col(data, mapping$y)
   cor <- cor(x, y, method = method, use = "na.or.complete")

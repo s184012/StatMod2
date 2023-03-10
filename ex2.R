@@ -1,6 +1,10 @@
 load('model_ex2.rds')
 load('data.rds')
 
+save_fig = function(name, figure = last_plot()) {
+  ggsave(plot = figure, file = paste(name, '.pdf', sep=''), path = 'figs', width=10*0.8, height = 6*0.8)
+}
+
 mod1_pred = predict(fit1, se=T, interval='prediction')
 Model = factor("Model1")
 Fit = mod1_pred$fit[,'fit']
