@@ -1,31 +1,30 @@
 library(tidyverse)
 
-data = read_csv('clothing.csv', col_types = "idddffdf")
-data <- data |> 
-  rename(id = ...1)
+# loads dataframes 'ear' and 'cloth'
+load('data.rds')
 
-data |> glimpse()
-data |> summary()
+cloth |> glimpse()
+cloth |> summary()
 
-multiple_data_pr_day_pr_person <- data |> 
+multiple_cloth_pr_day_pr_person <- cloth |> 
   filter(subjId == 11)
 
-no_missing_values <- data |> 
+no_missing_values <- cloth |> 
   summarise(
     across(everything(), ~ sum(is.na(.x)))
   )
 
-how_many_subjects <- data |> 
+how_many_subjects <- cloth |> 
   select(subjId) |> 
   n_distinct()
 how_many_subjects
 
-how_many_men_vs_female <- data |> 
+how_many_men_vs_female <- cloth |> 
   ggplot(aes(x=sex)) +
   geom_bar()
 how_many_men_vs_female
 
-observations_pr_subject <- data |> 
+observations_pr_subject <- cloth |> 
   mutate(
     subjId = fct_reorder(subjId, subjId, .fun = 'length')
   ) |> 
@@ -33,17 +32,17 @@ observations_pr_subject <- data |>
   geom_bar()
 observations_pr_subject
 
-observations_pr_day <- data |> 
+observations_pr_day <- cloth |> 
   ggplot(aes(x=day, fill=sex)) +
   geom_bar()
 observations_pr_day
 
-distribution_time_interval <- data |> 
+distribution_time_interval <- cloth |> 
   ggplot(aes(x=time)) +
   geom_histogram(binwidth=0.02)
 distribution_time_interval
 
-distribution_time_of_day <- data |> 
+distribution_time_of_day <- cloth |> 
   group_by(subjId, day) |> 
   mutate(
     time_of_day = cumsum(time)
@@ -52,29 +51,29 @@ distribution_time_of_day <- data |>
   geom_histogram(binwidth = .05)
 distribution_time_of_day
 
-data |> 
+cloth |> 
   ggplot(aes(x=log(clo))) +
   # geom_histogram(binwidth = .3) +
   geom_density(aes(fill=sex), alpha=.5)
 
-data |> 
+cloth |> 
   ggplot(aes(sample=clo)) +
   geom_qq() +
   geom_qq_line()
                  
-more_variance_in_women_clothing <- data |> 
+more_variance_in_women_clothing <- cloth |> 
   ggplot(aes(y=clo, fill=sex, x = day, )) +
   geom_violin(position = 'dodge')
 more_variance_in_women_clothing
 
-women_dress_according_to_wheather <- data |> 
+women_dress_according_to_wheather <- cloth |> 
   ggplot(aes(x = tInOp, y=tOut, color=clo)) +
   geom_point(size=4, alpha=.5, position = "jitter") +
   facet_wrap(vars(sex)) +
   scale_color_distiller(type='div', palette = 5)
 women_dress_according_to_wheather
 
-mean_variance_pr_person <- data |> 
+mean_variance_pr_person <- cloth |> 
   group_by(sex, subjId) |> 
   summarise(
     clo_sd = sd(clo),
@@ -85,7 +84,7 @@ mean_variance_pr_person <- data |>
   )
 mean_variance_pr_person
 
-development_in_clo_pr_person_pr_day <- data |> 
+development_in_clo_pr_person_pr_day <- cloth |> 
   group_by(subjId, day, .groups="drop") |> 
   mutate(time = cumsum(time)) |> 
   group_by(subjId, day, .groups="drop") |> # count observations pr. person pr. day
@@ -96,7 +95,7 @@ development_in_clo_pr_person_pr_day <- data |>
   facet_grid(rows = vars(sex), cols=vars(day))
 development_in_clo_pr_person_pr_day
 
-temperature_is_independent_of_subject_and_day <- data |> 
+temperature_is_independent_of_subject_and_day <- cloth |> 
   group_by(subjId, day, .groups="drop") |> 
   mutate(time=cumsum(time)) |> 
   ggplot(aes(x=time)) +
