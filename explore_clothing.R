@@ -8,11 +8,12 @@ cloth |> summary()
 
 multiple_cloth_pr_day_pr_person <- cloth |> 
   filter(subjId == 11)
-
+multiple_cloth_pr_day_pr_person
 no_missing_values <- cloth |> 
   summarise(
     across(everything(), ~ sum(is.na(.x)))
   )
+no_missing_values
 
 how_many_subjects <- cloth |> 
   select(subjId) |> 
@@ -103,4 +104,16 @@ temperature_is_independent_of_subject_and_day <- cloth |>
   facet_wrap(vars(day))
 temperature_is_independent_of_subject_and_day
 
-
+development_in_clo_pr_person_pr_day <- cloth |> 
+  # make time to be time of day instead
+  group_by(subjId, day, .groups="drop") |> 
+  mutate(time = cumsum(time)) |> 
+  # count observations pr. person pr. day
+  group_by(subjId, day, .groups="drop") |> 
+  mutate(n = n()) |>
+  # only include subjects with more than two observations that day.
+  filter(n > 2) |> 
+  ggplot(aes(x=time, y=clo)) +
+  geom_line(aes(group=subjId)) +
+  facet_grid(rows = vars(sex), cols=vars(day))
+development_in_clo_pr_person_pr_day
