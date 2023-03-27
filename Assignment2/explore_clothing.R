@@ -8,7 +8,7 @@ cloth |> summary()
 
 multiple_cloth_pr_day_pr_person <- cloth |> 
   filter(subjId == 11)
-multiple_cloth_pr_day_pr_person |> 
+multiple_cloth_pr_day_pr_person
 no_missing_values <- cloth |> 
   summarise(
     across(everything(), ~ sum(is.na(.x)))
