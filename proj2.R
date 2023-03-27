@@ -7,7 +7,31 @@ library(nlme)
 library(lme4)
 library(MASS)
 library(SuppDists)
+library(GGally)
+install.packages("bbmle")
+library(bbmle)
 rm(list=ls())
+
+####### How to plot
+Vplot <- data.frame(V=Vplot)
+mu1 <- predict(logis.glm,newdata=Vplot,type="response",se=TRUE)$fit
+se1 <- predict(logis.glm,newdata=Vplot, type="response", se=TRUE)$se.fit
+mu2 <- predict(logis.glm2,newdata=Vplot,type="response",se=TRUE)$fit
+se2 <- predict(logis.glm2,newdata=Vplot, type="response", se=TRUE)$se.fit
+muOD <- predict(logis.glm.OD,newdata=Vplot,type="response",se=TRUE)$fit
+seOD <- predict(logis.glm.OD,newdata=Vplot, type="response", se=TRUE)$se.fit
+
+par(mfrow=c(1,1))
+matplot(Vplot,cbind(mu1,mu2,muOD),type="l")
+polygon(c(Vplot$V,rev(Vplot$V)),c(muOD+2*seOD,rev(muOD-2*seOD)),border=FALSE,
+        col=gray(0.75))
+polygon(c(Vplot$V,rev(Vplot$V)),c(mu1+2*se1,rev(mu1-2*se1)),border=FALSE,
+        col=gray(0.5))
+polygon(c(Vplot$V,rev(Vplot$V)),c(mu2+2*se2,rev(mu2-2*se2)),border=FALSE,
+        col=gray(0.25))
+matlines(Vplot,cbind(mu1,mu2,muOD),lty=1,lwd=2)
+points(V,p,pch=19,col="blue")
+####
 
 cloth = read.csv("clothing.csv", header = T)
 cloth$sex = as.factor(cloth$sex)
@@ -15,95 +39,100 @@ cloth$subjId = as.factor(cloth$subjId)
 
 attach(cloth)
 
-plot(density(sqrt(cloth$clo)))
+plot(density(cloth$clo))
+####START OF 1
 
 ###INVERSE GAUSSIAN 
-modinv = glm(clo~(tOut + tInOp + sex)^2, family = inverse.gaussian(link = "1/mu^2"), data = cloth)
+modinv = glm(clo~(tOut*tInOp*sex), family = inverse.gaussian(link = "1/mu^2"), data = cloth)
 summary(modinv) 
 par(mfrow=c(2,2))
 plot(modinv)  
 sinv <- simulateResiduals(modinv) #no fit.
 plot(sinv)
 drop1(modinv, test = "F")
-modinv2 <- update(modinv,.~.-tInOp:sex)
+modinv2 <- update(modinv,.~.-tInOp:sex:tOut)
 drop1(modinv2, test = "F")
+modinv3 <- update(modinv2,.~.-tInOp:sex)
+drop1(modinv3, test = "F")
 
 
-summary(modinv2)
+summary(modinv3)
 par(mfrow=c(2,2))
-plot(modinv2)
+plot(modinv3)
 
 ########
 
-#GAUSSIAN
-modgauss = glm((clo)~(tOut + tInOp + sex)^2, family = gaussian(link = "identity"), data = cloth)
+#GAUSSIAN BAD IDEA, NOT STRICTLY POSITIVE
+modgauss = glm((clo)~(tOut*tInOp*sex), family = gaussian(link = "identity"), data = cloth)
 summary(modgauss)
 par(mfrow=c(2,2))
 plot(modgauss)  
 sga <- simulateResiduals(modgauss) #no good fit.
 plot(sga)
-modgausslog = glm((clo)~(tOut + tInOp + sex)^2, family = gaussian(link = "log"), data = cloth)
+modgausslog = glm((clo)~(tOut*tInOp*sex), family = gaussian(link = "log"), data = cloth)
 summary(modgausslog)
 par(mfrow=c(2,2))
 plot(modgausslog)  
 
-modgaussinv = glm((clo)~(tOut + tInOp + sex)^2, family = gaussian(link = "inverse"), data = cloth)
+modgaussinv = glm((clo)~(tOut*tInOp*sex), family = gaussian(link = "inverse"), data = cloth)
 summary(modgaussinv)
 par(mfrow=c(2,2))
 plot(modgaussinv)  
 #####
 
-mod1 = glm((clo)~(tOut + tInOp + sex)^2, family = Gamma(link = "inverse"), data = cloth)
+mod1 = glm((clo)~(tOut*tInOp*sex), family = Gamma(link = "inverse"), data = cloth)
 summary(mod1) 
-sma <- simulateResiduals(mod1) #still no good fit.
-plot(sma)
 par(mfrow=c(2,2))
 plot(mod1)                                                                     
 drop1(mod1, test = "F")
-mod2 <- update(mod1,.~.-tInOp:sex)
+mod2 <- update(mod1,.~.-tInOp:sex:tOut)
 drop1(mod2, test = "F")
-mod3 <- update(mod2,.~.-tOut:tInOp)
+mod3 <- update(mod2,.~.-sex:tInOp)
 drop1(mod3, test = "F")
-mod4 <- update(mod3,.~.-tInOp)
+mod4 <- update(mod3,.~.-tOut:tInOp)
 drop1(mod4, test = "F")
-summary(mod4)
-par(mfrow=c(2,2))
-plot(mod4)  
-smar <- simulateResiduals(mod4)
-plot(smar) 
+mod5 <- update(mod4,.~.-tInOp)
+drop1(mod5, test = "F")
 
-modl1 = glm(clo~(tOut + tInOp + sex)^2, family = Gamma(link = "log"), data = cloth)
+summary(mod5)
+par(mfrow=c(2,2))
+plot(mod5)  
+#####################
+
+modl1 = glm(clo~tOut*tInOp*sex, family = Gamma(link = "log"), data = cloth)
 summary(modl1)
 par(mfrow=c(2,2))
 plot(modl1)                                                                     
 drop1(modl1, test = "F")
-modl2 <- update(modl1,.~.-tInOp:tOut)
+modl2 <- update(modl1,.~.-tInOp:tOut:sex)
 drop1(modl2, test = "F")
-modl3 <- update(modl2,.~.-sex:tInOp)
+modl3 <- update(modl2,.~.-tOut:tInOp)
 drop1(modl3, test = "F")
-modl4 <- update(modl3,.~.-tInOp)
+modl4 <- update(modl3,.~.-tInOp:sex)
 drop1(modl4, test = "F")
-summary(modl4)  
+modl5 <- update(modl4,.~.-tInOp)
+drop1(modl5, test = "F")
+summary(modl5)  
 par(mfrow=c(2,2))
-plot(modl4)  
+plot(modl5)  
+
+####
 
 modi1 = glm(clo~(tOut*tInOp*sex), family = Gamma(link = "identity"), data = cloth)
 summary(modi1)
 par(mfrow=c(2,2))
-plot(modi1)                                                                     
+plot(modi1)   
 drop1(modi1, test = "F")
-modi2 <- update(modi1,.~.-tInOp:sex)
-drop1(modi2, test = "F")
-modi3 <- update(modi2,.~.-tOut:tInOp)
-drop1(modi3, test = "F")
-modi4 <- update(modi3,.~.-tInOp)
-drop1(modi4, test = "F")
-summary(modi4)  #Worse AIC than the others
+#No evidence to reduce, we use the complete model
 
-par(mfrow=c(2,2))
-plot(modi1)  
+summary(modi1)  #Best AIC
+
+
 
 #CONCLUSION: gamma identity
+####END OF 1
+
+####START OF 2
 
 #RESIDUAL ANALYSIS
 nfem = sum(cloth$sex=="female")
@@ -123,99 +152,148 @@ sd(modi1$residuals[sex=='female'])
 
 #There seems to be higher variance when it comes to female
 
-hist( modi4$residuals, 10, probability = TRUE, col = 'lavender', main = 'residuals' )
-X = model.matrix( modi4)
+hist( modi1$residuals, 10, probability = TRUE, col = 'lavender', main = 'residuals' )
+X = model.matrix( modi1)
 lev = hat(X)
-p = modi4$rank;
+p = modi1$rank;
 n = length(clo);
-plot( modi4$fitted.values, lev, ylab = "Leverages", main = "Plot of Leverages",
+plot( modi1$fitted.values, lev, ylab = "Leverages", main = "Plot of Leverages",
       pch = 16, col = 'black' )
 abline( h = 2 * p/n, lty = 2, col = 'red' )
 watchout_points_lev = lev[ which( lev > 2 * p/n ) ]
 watchout_ids_lev = seq_along( lev )[ which( lev > 2 * p/n ) ]
-points( modi4$fitted.values[ watchout_ids_lev ], watchout_points_lev, col = 'red', pch = 16 )
+points( modi1$fitted.values[ watchout_ids_lev ], watchout_points_lev, col = 'red', pch = 16 )
 
-# RESIDUAL ANALYSIS
-gs = summary(modi4)
-res_std = modi4$residuals/sd(clo)
-watchout_ids_rstd = which( abs( res_std ) > 2 )
-watchout_rstd = res_std[ watchout_ids_rstd ]
-watchout_rstd
-plot( modi4$fitted.values, res_std, ylab = "Standardized Residuals", main = "Standardized Residuals" )
-abline( h = c(-2,2), lty = 2, col = 'orange' )
-points( modi4$fitted.values[watchout_ids_rstd],
-        res_std[watchout_ids_rstd], col = 'red', pch = 16 )
-points( modi4$fitted.values[watchout_ids_lev],
-        res_std[watchout_ids_lev], col = 'orange', pch = 16 )
-legend('topright', col = c('red','orange'),
-       c('Standardized Residuals', 'Leverages'), pch = rep( 16, 2 ), bty = 'n' )
-# Studentized residuals
-stud = rstudent( modi4 )
-watchout_ids_stud = which( abs( stud ) > 2 )
-watchout_stud = stud[ watchout_ids_stud ]
-plot( modi4$fitted.values, stud, ylab = "Studentized Residuals", main = "Studentized Residuals", pch = 16 )
-points( modi4$fitted.values[watchout_ids_stud],
-        stud[watchout_ids_stud], col = 'pink', pch = 16 )
-points( modi4$fitted.values[watchout_ids_lev],
-        stud[watchout_ids_lev], col = 'orange', pch = 16 )
-abline( h = c(-2,2), lty = 2, col = 'orange' )
-legend('topright', col = c('pink','orange'),
-       c('Studentized Residual', 'Leverages'), pch = rep( 16, 3 ), bty = 'n' )
 
 # Cook Distance
-Cdist = cooks.distance( modi4 )
+Cdist = cooks.distance( modi1, type = "pearson")
 watchout_ids_Cdist = which( Cdist > 4/(n-p) )
 watchout_Cdist = Cdist[ watchout_ids_Cdist ]
 watchout_Cdist
-par( mfrow = c( 1, 3 ) )
-plot( modi4$fitted.values, Cdist, pch = 16, xlab = 'Fitted values',
+par( mfrow = c( 1, 2 ) )
+plot( modi1$fitted.values, Cdist, pch = 16, xlab = 'Fitted values',
       ylab = 'Cooks Distance', main = 'Cooks Distance' )
-points( modi4$fitted.values[ watchout_ids_Cdist ], Cdist[ watchout_ids_Cdist ],
+points( modi1$fitted.values[ watchout_ids_Cdist ], Cdist[ watchout_ids_Cdist ],
         col = 'green', pch = 16 )
-plot( modi4$fitted.values, stud, pch = 16, xlab = 'Fitted values',
-      ylab = 'Studentized Residuals', main = 'Studentized Residuals' )
-points( modi4$fitted.values[ watchout_ids_stud ], stud[ watchout_ids_stud ],
-        col = 'pink', pch = 16 )
-plot( modi4$fitted.values, lev, pch = 16, xlab = 'Fitted values',
+plot( modi1$fitted.values, lev, pch = 16, xlab = 'Fitted values',
       ylab = 'Leverages', main = 'Leverages' )
 
-points( modi4$fitted.values[ watchout_ids_lev ], lev[ watchout_ids_lev ],
+points( modi1$fitted.values[ watchout_ids_lev ], lev[ watchout_ids_lev ],
         col = 'orange', pch = 16 )
 
 id_to_keep = !( 1:n %in% watchout_ids_Cdist )
-gl = glm(clo~(tOut + sex)^2, family = Gamma(link = "identity"), data = cloth[ id_to_keep, ])
+gl = glm(clo~(tOut*tInOp*sex), family = Gamma(link = "identity"), data = cloth[ id_to_keep, ])
 
 
-summary( gl )
+summary( gl ) 
+#the AIC is better
 par(mfrow=c(2,2))
 plot(gl)      
-#Better
+####END OF 2
 
-##
+####START OF 3
+par(mfrow=c(1,1))
 
-mo = glm(clo~(tOut + tInOp)^2 + subjId, family = Gamma(link = "identity"), data = cloth)
+data_mod <- data.frame(Predicted = predict(modi1),  # Create data for ggplot2
+                       Observed = clo)
+
+
+ggplot(data_mod,                                     # Draw plot using ggplot2 package
+       aes(x = Predicted,
+           y = Observed)) +
+  geom_point() +
+  geom_abline(intercept = 0,
+              slope = 1,
+              color = "red",
+              linewidth = 2)
+
+pOut <- cloth %>% 
+  ggplot(aes(x = tOut, y = clo)) +
+  geom_point(colour = "black") +
+  geom_smooth(method = "glm", se = TRUE) +
+  labs(title = "95% Confidence Interval") +
+  theme_bw() +
+  theme(plot.title = element_text(face = "bold",hjust = 0.5))
+
+pOut
+
+pIn <- cloth %>% 
+  ggplot(aes(x = tInOp, y = clo)) +
+  geom_point(colour = "black") +
+  geom_smooth(method = "glm", se = TRUE) +
+  labs(title = "95% Confidence Interval") +
+  theme_bw() +
+  theme(plot.title = element_text(face = "bold",hjust = 0.5))
+
+pIn
+
+pSex <- cloth %>% 
+  ggplot(aes(x = sex, y = clo)) +
+  geom_point(colour = "black") +
+  geom_smooth(method = "glm", se = TRUE) +
+  labs(title = "95% Confidence Interval") +
+  theme_bw() +
+  theme(plot.title = element_text(face = "bold",hjust = 0.5))
+
+pSex
+
+confint(modi1)
+predint = predict(modi1, cloth, intervals="prediction", se.fit = TRUE ) 
+####END OF 3
+
+####START OF 4
+
+mo = glm(clo~(tOut*tInOp) + subjId, family = Gamma(link = "identity"), data = cloth)
 summary(mo)
-so <- simulateResiduals(mo)
-plot(so)
+
 par(mfrow=c(2,2))
 plot(mo)  
 
 drop1(mo, test = "F")
 mo2 <- update(mo,.~.-tOut:tInOp)
-drop1(mo2, test = "Chisq")
-summary(mo2)
+drop1(mo2, test = "F")
+summary(mo2) #Better than before
 par(mfrow=c(2,2))
 plot(mo2)  
+#the model with subject Id seems to be better, given that it has a lower AIC
+
+####END OF 4
+
+
+
+####START OF 5
+resDev5 <- residuals(mo2,type="pearson")
+categories <- unique(subjId) 
+numberOfCategories <- length(categories)
+DW = rep(0, numberOfCategories)
+
+
+
+for (i in 1:numberOfCategories){
+  acf(resDev5[subjId==categories[i]], plot=T)
+  DW[i] = durbinWatsonTest(resDev5[subjId==categories[i]])
+}
+acf(resDev5[subjId==categories[1]], plot=T, lag.max = 4) #evidence of autocorrelation
+
 par(mfrow=c(1,1))
-resDev <- residuals(mo2,type="pearson")
-plot(jitter(as.numeric(day), amount=0.1), resDev,
+plot(jitter(as.numeric(day[subjId==categories[2]]), amount=0.1), resDev5[subjId==categories[1]],
      xlab="Day", ylab="Deviance residuals", cex=0.6,
      axes=FALSE)
 box()
 axis(1,label=c("DAY 1", "DAY 2" , "DAY 3", "DAY 4" ),at=c(1,2,3,4))
 axis(2)
-#AT DAY 4 SEEM TO BE TOO LITTLE OBSERVATION, NO EVIDENCE OF HETEROSCEDASTICITY WITHIN DAYS
-####
+
+durbinWatsonTest(mo2) #the residuals are autocorrelated
+
+
+fit <- glmer(clo~(tOut*tInOp) + (1|subjId) + (day|subjId) ,family = Gamma(link = "identity"),
+             data = cloth)
+summary(fit)
+plot(fit)
+
+
+####END OF 5
+####START OF 6 IGNORE IT
 modmw = glm(clo~sex, family = Gamma(link = "identity"), data = cloth)
 summary(modmw)
 par(mfrow=c(2,2))
@@ -254,6 +332,7 @@ axis(2)
 detach(cloth)
 
 ####
+rm(list=ls())
 swim = read.table("earinfect.txt", header = T)
 swim$swimmer = as.factor(swim$swimmer)
 swim$location = as.factor(swim$location)
@@ -261,9 +340,12 @@ swim$age = as.factor(swim$age)
 swim$sex = as.factor(swim$sex)
 attach(swim)
 
+#We decided to add only until the second order terms because the higher order interactions 
+#would have generated some NA's
 
 
-mod = glm(infections~(age + sex +swimmer + location)^2, offset = log(persons), family = poisson(link = "log"))
+mod = glm(infections~(age+sex + swimmer + location) + age:sex + swimmer:location + 
+            age:swimmer + age:location + sex:location + sex:swimmer, offset = log(persons), family = poisson(link = "log"))
 summary(mod)
 par(mfrow=c(2,2))
 plot(mod)  
@@ -271,13 +353,15 @@ plot(mod)
 1 - pchisq(2.5421, 9) #Really good.
 
 
-mod_rev1 = glm(infections~(age + sex +swimmer + location)^2, offset = log(persons), family = poisson(link = "sqrt"))
+mod_rev1 = glm(infections~(age+sex + swimmer + location) + age:sex + swimmer:location + 
+                 age:swimmer + age:location + sex:location + sex:swimmer, offset = log(persons), family = poisson(link = "sqrt"))
 summary(mod_rev1)
 par(mfrow=c(2,2))
 plot(mod)
 1 - pchisq(1.8822, 9)
 
-mod_rev2 = glm(infections~(age + sex +swimmer + location)^2, offset = log(persons), family = poisson(link = "identity"))
+mod_rev2 = glm(infections~(age+sex + swimmer + location) + age:sex + swimmer:location + 
+                 age:swimmer + age:location + sex:location + sex:swimmer, offset = log(persons), family = poisson(link = "identity"))
 summary(mod_rev2)
 par(mfrow=c(2,2))
 plot(mod)
@@ -286,32 +370,37 @@ plot(mod)
 
 
 #When reducing, we look if the AIC is better
-drop1(mod_rev1, type = "F")
-modr2  <- update(mod_rev1,.~.-age:location)
-drop1(modr2, type = "F")
-modr3  <- update(modr2,.~.-age:swimmer)
-drop1(modr3, type = "F")
-modr4  <- update(modr3,.~.-sex:swimmer)
-drop1(modr4, type = "F")
-modr5  <- update(modr4,.~.-sex:age)
-drop1(modr5, type = "F")
-modr6  <- update(modr5,.~.-age)
-drop1(modr6, type = "F")
-modr7  <- update(modr6,.~.-swimmer:location)
-drop1(modr7, type = "F")
-modr8  <- update(modr7,.~.-swimmer)
-drop1(modr8, type = "F")
-summary(modr8)
-
-1 - pchisq(8.917, 9) #GOF worsened, but AIC is better. The GOF measure remains still good.
-anova(modr8,mod)
+reduced_model <- step(mod_rev1)
+summary(reduced_model)
+1 - pchisq(8.917, 20) #OK
+anova(reduced_model,mod_rev1)
 
 par(mfrow=c(2,2))
-plot(modr8)
+plot(reduced_model)
 
-#try with quasi possion, even though it doesn't seem to be to much overdisp
-modq = glm(infections~(age + sex +swimmer + location)^2, offset = log(persons), family = quasipoisson(link = "log"), data = swim)
-summary(modq)
+#try with quasi possion
+modql = glm(infections~(age+sex + swimmer + location) + age:sex + swimmer:location + 
+             age:swimmer + age:location + sex:location + sex:swimmer, offset = log(persons), family = quasipoisson(link = "log"), data = swim)
+summary(modql)
 par(mfrow=c(2,2))
-plot(modq)
-drop1(modq, type = "F")
+plot(modql)
+
+modqi = glm(infections~(age+sex + swimmer + location) + age:sex + swimmer:location + 
+             age:swimmer + age:location + sex:location + sex:swimmer, offset = log(persons), family = quasipoisson(link = "identity"), data = swim)
+summary(modqi)
+par(mfrow=c(2,2))
+plot(modqi) #shit
+
+modqs = glm(infections~(age+sex + swimmer + location) + age:sex + swimmer:location + 
+              age:swimmer + age:location + sex:location + sex:swimmer, offset = log(persons), family = quasipoisson(link = "sqrt"), data = swim)
+summary(modqs)
+par(mfrow=c(2,2))
+plot(modqs) #better
+
+
+sim_fmp <- simulateResiduals(reduced_model, refit=T)
+testOverdispersion(sim_fmp)
+#there is no evidence of overdispersion, so we choose the initial model
+
+
+detach(swim)
