@@ -262,6 +262,10 @@ plot(mo2)
 
 
 ####START OF 5
+
+
+
+
 resDev5 <- residuals(mo2,type="pearson")
 categories <- unique(subjId) 
 numberOfCategories <- length(categories)
@@ -293,7 +297,35 @@ plot(fit)
 
 
 ####END OF 5
-####START OF 6 IGNORE IT
+####START OF 6
+
+nll <- function(par){
+  -sum(dgamma(cloth$clo, shape = (par[1] + (cloth$sex == 'female')*par[2]), scale = par[3], log = T))
+}
+opt <- optim(c(1, .5, .02), nll, method = "L-BFGS-B", lower=c(0, 0, 0.00001))
+2*opt$value + 6
+
+xs = seq(0,2,length.out=50)
+plot(xs, dgamma(xs, shape = 11.50164779, scale=0.04592705), type='l', col='blue')
+lines(xs, dgamma(xs, shape = 11.50164779 + 0.97329550, scale=0.04592705), col='red')
+
+
+profile_likelihood <- function(lambda, data) {
+  nll <- function(par){
+    -sum(dgamma(data$clo, shape = (par[1] + (data$sex == 'female')*lambda), scale = par[2], log = T))
+  }
+  optim(c(1, 1), nll, method = "L-BFGS-B", lower=c(0,0.001))$value
+}
+
+lambdas <- seq(0, 2, length.out=100)
+
+plik <- sapply(lambdas, profile_likelihood, cloth)
+
+
+
+plot(lambdas, exp(-plik) / max(exp(-plik)), type='l' )
+title(ylab = 'Scaled')
+
 modmw = glm(clo~sex, family = Gamma(link = "identity"), data = cloth)
 summary(modmw)
 par(mfrow=c(2,2))
@@ -350,6 +382,8 @@ summary(mod)
 par(mfrow=c(2,2))
 plot(mod)  
 
+gamma(age + sex + swimmer, 1 + sex )
+
 1 - pchisq(2.5421, 9) #Really good.
 
 
@@ -401,6 +435,7 @@ plot(modqs) #better
 sim_fmp <- simulateResiduals(reduced_model, refit=T)
 testOverdispersion(sim_fmp)
 #there is no evidence of overdispersion, so we choose the initial model
+
 
 
 detach(swim)
