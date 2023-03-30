@@ -8,7 +8,7 @@ library(lme4)
 library(MASS)
 library(SuppDists)
 library(GGally)
-install.packages("bbmle")
+#install.packages("bbmle")
 library(bbmle)
 rm(list=ls())
 
@@ -33,74 +33,130 @@ matlines(Vplot,cbind(mu1,mu2,muOD),lty=1,lwd=2)
 points(V,p,pch=19,col="blue")
 ####
 
-cloth = read.csv("clothing.csv", header = T)
-cloth$sex = as.factor(cloth$sex)
-cloth$subjId = as.factor(cloth$subjId)
+dat = read.csv("clothing.csv", header = T)
+str(dat)
+plot(dat$clo)
+dat$sex = as.factor(dat$sex)
+dat$subjId = as.factor(dat$subjId)
 
-attach(cloth)
+attach(dat)
 
-plot(density(cloth$clo))
+plot(density(dat$clo))
 ####START OF 1
 
+
+
 ###INVERSE GAUSSIAN 
-modinv = glm(clo~(tOut*tInOp*sex), family = inverse.gaussian(link = "1/mu^2"), data = cloth)
+modinv = glm(clo~(tOut*tInOp*sex), family = inverse.gaussian(link = "1/mu^2"), data = dat)
 summary(modinv) 
-par(mfrow=c(2,2))
-plot(modinv)  
-sinv <- simulateResiduals(modinv) #no fit.
-plot(sinv)
-drop1(modinv, test = "F")
+anova(modinv,test="F")
 modinv2 <- update(modinv,.~.-tInOp:sex:tOut)
-drop1(modinv2, test = "F")
+anova(modinv2,test="F")
 modinv3 <- update(modinv2,.~.-tInOp:sex)
-drop1(modinv3, test = "F")
-
-
+anova(modinv3,test="F")
 summary(modinv3)
-par(mfrow=c(2,2))
 plot(modinv3)
+
+modinv = glm(clo~(tOut*tInOp*sex), family = inverse.gaussian(link = "inverse"), data = dat)
+summary(modinv) 
+anova(modinv,test="F")
+modinv2 <- update(modinv,.~.-tInOp:sex:tOut)
+anova(modinv2,test="F")
+modinv3 <- update(modinv2,.~.-tInOp:sex)
+anova(modinv3,test="F")
+summary(modinv3) #934
+plot(modinv3)
+
+modinv_best = glm(clo~(tOut*tInOp*sex), family = inverse.gaussian(link = "identity"), data = dat)
+summary(modinv_best) #950
+anova(modinv_best,test="F") #BEST ONE FOR INVERSE!!
+
+
+modinv = glm(clo~(tOut*tInOp*sex), family = inverse.gaussian(link = "log"), data = dat)
+summary(modinv) 
+anova(modinv,test="F")
+modinv2 <- update(modinv,.~.-tInOp:sex:tOut)
+anova(modinv2,test="F")
+modinv3 <- update(modinv2,.~.-tInOp:sex)
+anova(modinv3,test="F")
+summary(modinv3)
+plot(modinv3)
+
+
+#what is this????
+sinv <- simulateResiduals(modinv_best) #no fit.
+plot(sinv) 
+
 
 ########
 
 #GAUSSIAN BAD IDEA, NOT STRICTLY POSITIVE
-modgauss = glm((clo)~(tOut*tInOp*sex), family = gaussian(link = "identity"), data = cloth)
+modgauss = glm((clo)~(tOut*tInOp*sex), family = gaussian(link = "identity"), data = dat)
 summary(modgauss)
+modgauss$aic #958
 par(mfrow=c(2,2))
 plot(modgauss)  
+anova(modgauss,test="F")
+
+#what is this?????#what is this?????#what is this?????#what is this?????#what is this?????#what is this?????
+#what is this?????#what is this?????#what is this?????#what is this?????#what is this?????#what is this?????
 sga <- simulateResiduals(modgauss) #no good fit.
 plot(sga)
-modgausslog = glm((clo)~(tOut*tInOp*sex), family = gaussian(link = "log"), data = cloth)
-summary(modgausslog)
+#what is this?????#what is this?????#what is this?????#what is this?????#what is this?????#what is this?????#what is this?????
+#what is this?????#what is this?????#what is this?????#what is this?????#what is this?????#what is this?????#what is this?????
+
+modgausslog = glm((clo)~(tOut*tInOp*sex), family = gaussian(link = "log"), data = dat)
+summary(modgausslog) #pretty bad fit
 par(mfrow=c(2,2))
 plot(modgausslog)  
+anova(modgausslog,test="F")
+modgausslog <- update(modgausslog,.~.-tInOp:sex:tOut)
+anova(modgausslog,test="F")
+modgausslog <- update(modgausslog,.~.-tOut:tInOp)
+anova(modgausslog,test="F")
+modgausslog <- update(modgausslog,.~.-tInOp:sex)
+anova(modgausslog,test="F")
+modgausslog_final<-modgausslog
+summary(modgausslog_final) #952
+plot(modgausslog_final)
 
-modgaussinv = glm((clo)~(tOut*tInOp*sex), family = gaussian(link = "inverse"), data = cloth)
+
+modgaussinv = glm((clo)~(tOut*tInOp*sex), family = gaussian(link = "inverse"), data = dat)
 summary(modgaussinv)
+anova(modgaussinv,test="F")
+modgaussinv <- update(modgaussinv,.~.-tInOp:sex:tOut)
+anova(modgaussinv,test="F")
+summary(modgaussinv) #946.  looks kind of trash with lots of non-significant parameters.
 par(mfrow=c(2,2))
 plot(modgaussinv)  
 #####
 
-mod1 = glm((clo)~(tOut*tInOp*sex), family = Gamma(link = "inverse"), data = cloth)
-summary(mod1) 
+#Gamma functions:
+mod1 = glm((clo)~(tOut*tInOp*sex), family = Gamma(link = "inverse"), data = dat)
+summary(mod1)  #969
 par(mfrow=c(2,2))
 plot(mod1)                                                                     
 drop1(mod1, test = "F")
 mod2 <- update(mod1,.~.-tInOp:sex:tOut)
+mod2$aic
 drop1(mod2, test = "F")
 mod3 <- update(mod2,.~.-sex:tInOp)
+mod3$aic
 drop1(mod3, test = "F")
 mod4 <- update(mod3,.~.-tOut:tInOp)
+mod4$aic
 drop1(mod4, test = "F")
 mod5 <- update(mod4,.~.-tInOp)
+mod5$aic
 drop1(mod5, test = "F")
 
-summary(mod5)
+summary(mod5) #968.9
 par(mfrow=c(2,2))
 plot(mod5)  
 #####################
 
-modl1 = glm(clo~tOut*tInOp*sex, family = Gamma(link = "log"), data = cloth)
-summary(modl1)
+modl1 = glm(clo~tOut*tInOp*sex, family = Gamma(link = "log"), data = dat)
+summary(modl1) #-978.85
 par(mfrow=c(2,2))
 plot(modl1)                                                                     
 drop1(modl1, test = "F")
@@ -112,14 +168,14 @@ modl4 <- update(modl3,.~.-tInOp:sex)
 drop1(modl4, test = "F")
 modl5 <- update(modl4,.~.-tInOp)
 drop1(modl5, test = "F")
-summary(modl5)  
+summary(modl5)   #aic = -980.51
 par(mfrow=c(2,2))
 plot(modl5)  
 
 ####
 
-modi1 = glm(clo~(tOut*tInOp*sex), family = Gamma(link = "identity"), data = cloth)
-summary(modi1)
+modi1 = glm(clo~(tOut*tInOp*sex), family = Gamma(link = "identity"), data = dat)
+summary(modi1) #-987.36
 par(mfrow=c(2,2))
 plot(modi1)   
 drop1(modi1, test = "F")
@@ -130,12 +186,176 @@ summary(modi1)  #Best AIC
 
 
 #CONCLUSION: gamma identity
+mod_Gauss<-glm(clo~(tOut*tInOp*sex), family = gaussian(link = "identity"), data = dat)
+mod_InvGauss<-glm(clo~(tOut*tInOp*sex), family = inverse.gaussian(link = "identity"), data = dat)
+mod_Gamma<-glm(clo~(tOut*tInOp*sex), family = Gamma(link = "identity"), data = dat)
+
+summary(mod_Gauss)$aic
+summary(mod_InvGauss)$aic
+summary(mod_Gamma)
+
+#CONCLUSION: gamma identity
+mod_Gauss_sqr<-glm(clo~I(tOut^2)*sex+I(tInOp^2)*sex+sex*tOut*tInOp, family = gaussian(link = "identity"), data = dat)
+mod_InvGauss_sqr<-glm(clo~((I(tOut^2)*I(tInOp^2)*sex)*tOut*tInOp), family = inverse.gaussian(link = "identity"), data = dat)
+mod_Gamma_sqr<-glm(clo~((I(tOut^2)*I(tInOp^2)*sex)*tOut*tInOp), family = Gamma(link = "identity"), data = dat)
+
+summary(mod_Gauss)
+summary(mod_Gauss_sqr)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tOut^2):sex)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tOut^2):I(tInOp^2):sex:tOut)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tOut^2):sex:tOut:tInOp)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tOut^2):I(tInOp^2):tOut:tInOp)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tInOp^2):sex:tOut:tInOp)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tOut^2):sex:tOut:tInOp)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tOut^2):I(tInOp^2):sex:tInOp)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tInOp^2):sex:tOut)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tOut^2):I(tInOp^2):sex:tInOp)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tOut^2):sex:tOut)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tOut^2):I(tInOp^2):tOut)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tOut^2):I(tInOp^2):tInOp)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-sex:tOut:tInOp)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-tOut:tInOp)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tInOp^2):tOut)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tInOp^2):sex:tInOp)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tOut^2):I(tInOp^2):sex)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tOut^2):tOut)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-sex:tOut)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tInOp^2):tInOp)
+drop1(mod_Gauss_sqr,test="F")
+mod_Gauss_sqr <- update(mod_Gauss_sqr,.~.-I(tOut^2):I(tInOp^2))
+drop1(mod_Gauss_sqr,test="F")
+summary(mod_Gauss_sqr)
+plot(mod_Gauss_sqr)
+plot(mod_Gauss)
+
+
+summary(mod_InvGauss)
+summary(mod_InvGauss_sqr)
+
+summary(mod_Gamma)
+summary(mod_Gamma_sqr)
+
+sga <- simulateResiduals(mod_Gauss)
+plot(sga)
+
+sga <- simulateResiduals(mod_InvGauss)
+plot(sga)
+
+sga <- simulateResiduals(mod_Gamma)
+plot(sga)
+
+saveFig <- TRUE
+if(saveFig == TRUE){pdf("ResGauss.pdf", width = 10*0.8, height = 10*0.8)}
+par(mfrow=c(2,2))
+plot(mod_Gauss)
+if(saveFig == TRUE){dev.off()}
+saveFig <- FALSE
+saveFig <- TRUE
+
+if(saveFig == TRUE){pdf("ResInvGauss.pdf", width = 10*0.8, height = 10*0.8)}
+par(mfrow=c(2,2))
+plot(mod_InvGauss)
+if(saveFig == TRUE){dev.off()}
+saveFig <- FALSE
+
+saveFig <- TRUE
+if(saveFig == TRUE){pdf("ResGamma.pdf", width = 10*0.8, height = 10*0.8)}
+par(mfrow=c(2,2))
+plot(mod_Gamma)
+if(saveFig == TRUE){dev.off()}
+saveFig <- FALSE
+
+
+write.csv(signif(summary(mod_Gamma)$coefficients, digits = 3),"Mod_Gamma.csv")
+write.csv(signif(summary(mod_Gauss)$coefficients, digits = 3),"Mod_Gauss.csv")
+write.csv(signif(summary(mod_InvGauss)$coefficients, digits = 3),"Mod_InvGau.csv")
+
+signif(summary(mod_Gamma)$coefficients, digits = 3)
+signif(summary(mod_Gauss)$coefficients, digits = 3)
+signif(summary(mod_InvGauss)$coefficients, digits = 3)
+
+#predictions:
+X_tOut<-seq(floor(min(tOut)),ceiling(max(tOut)),by=0.2)
+X_tInOp<-seq(floor(min(tInOp))-2,ceiling(max(tInOp))+2,by=1)
+  
+(Newdata_male <- data.frame(tOut=X_tOut,tInOp=25,sex="male"))
+(Newdata_female <- data.frame(tOut=X_tOut,tInOp=25,sex="female"))
+Gauss_pred_male<-predict(mod_Gauss,newdata = Newdata_male)
+Gauss_pred_female<-predict(mod_Gauss,newdata = Newdata_female)
+lines(X_tOut,Gauss_pred_female,col="red")
+
+
+par(mfrow=c(1,1))
+plot(X_tOut,Gauss_pred_male,type="l",col="blue",ylim=c(0,1))
+
+for (i in X_tInOp){
+  (Newdata_male <- data.frame(tOut=X_tOut,tInOp=i,sex="male"))
+  Gauss_pred_male<-predict(mod_Gauss,newdata = Newdata_male)
+  lines(X_tOut,Gauss_pred_male,col="green")
+  }
+
+(Newdata_male <- data.frame(tOut=25,tInOp=X_tInOp,sex="male"))
+(Newdata_female <- data.frame(tOut=25,tInOp=X_tInOp,sex="female"))
+Gauss_pred_male<-predict(mod_Gauss,newdata = Newdata_male)
+Gauss_pred_female<-predict(mod_Gauss,newdata = Newdata_female)
+lines(X_tInOp,Gauss_pred_male,col="green")
+lines(X_tInOp,Gauss_pred_female,col="black")
+
+
+predict(mod_Gamma)
+predict(mod_InvGauss)
+
+
 ####END OF 1
 
-####START OF 2
+####START OF 2 OSCAR
 
+data_fem<-filter(dat,dat$sex=="female")
+data_mal<-filter(dat,dat$sex=="male")
+
+#male data
+mod_Gauss_mal<-glm(clo~(tOut*tInOp), family = gaussian(link = "identity"), data = data_mal)
+mod_InvGauss_mal<-glm(clo~(tOut*tInOp), family = inverse.gaussian(link = "identity"), data = data_mal)
+mod_Gamma_mal<-glm(clo~(tOut*tInOp), family = Gamma(link = "identity"), data = data_mal)
+
+
+#female data
+mod_Gauss_fem<-glm(clo~(tOut*tInOp), family = gaussian(link = "identity"), data = data_fem)
+mod_InvGauss_fem<-glm(clo~(tOut*tInOp), family = inverse.gaussian(link = "identity"), data = data_fem)
+mod_Gamma_fem<-glm(clo~(tOut*tInOp), family = Gamma(link = "identity"), data = data_fem)
+
+summary(mod_Gauss_mal)$deviance
+summary(mod_InvGauss_mal)$deviance
+summary(mod_Gamma_mal)$deviance
+summary(mod_Gauss_fem)$deviance
+summary(mod_InvGauss_fem)$deviance
+summary(mod_Gamma_fem)$deviance
+####END 2 Oscar
+
+
+####START OF 2
 #RESIDUAL ANALYSIS
-nfem = sum(cloth$sex=="female")
+nfem = sum(dat$sex=="female")
 nmal = length(clo)-nfem
 
 
@@ -182,8 +402,8 @@ points( modi1$fitted.values[ watchout_ids_lev ], lev[ watchout_ids_lev ],
         col = 'orange', pch = 16 )
 
 id_to_keep = !( 1:n %in% watchout_ids_Cdist )
-gl = glm(clo~(tOut*tInOp*sex), family = Gamma(link = "identity"), data = cloth[ id_to_keep, ])
-
+gl = glm(clo~(tOut*tInOp*sex), family = Gamma(link = "identity"), data = dat[ id_to_keep, ])
+anova(mod_Gauss)
 
 summary( gl ) 
 #the AIC is better
@@ -207,7 +427,7 @@ ggplot(data_mod,                                     # Draw plot using ggplot2 p
               color = "red",
               linewidth = 2)
 
-pOut <- cloth %>% 
+pOut <- dat %>% 
   ggplot(aes(x = tOut, y = clo)) +
   geom_point(colour = "black") +
   geom_smooth(method = "glm", se = TRUE) +
@@ -217,7 +437,7 @@ pOut <- cloth %>%
 
 pOut
 
-pIn <- cloth %>% 
+pIn <- dat %>% 
   ggplot(aes(x = tInOp, y = clo)) +
   geom_point(colour = "black") +
   geom_smooth(method = "glm", se = TRUE) +
@@ -227,7 +447,7 @@ pIn <- cloth %>%
 
 pIn
 
-pSex <- cloth %>% 
+pSex <- dat %>% 
   ggplot(aes(x = sex, y = clo)) +
   geom_point(colour = "black") +
   geom_smooth(method = "glm", se = TRUE) +
@@ -238,12 +458,12 @@ pSex <- cloth %>%
 pSex
 
 confint(modi1)
-predint = predict(modi1, cloth, intervals="prediction", se.fit = TRUE ) 
+predint = predict(modi1, dat, intervals="prediction", se.fit = TRUE ) 
 ####END OF 3
 
 ####START OF 4
 
-mo = glm(clo~(tOut*tInOp) + subjId, family = Gamma(link = "identity"), data = cloth)
+mo = glm(clo~(tOut*tInOp) + subjId, family = Gamma(link = "identity"), data = dat)
 summary(mo)
 
 par(mfrow=c(2,2))
@@ -262,10 +482,6 @@ plot(mo2)
 
 
 ####START OF 5
-
-
-
-
 resDev5 <- residuals(mo2,type="pearson")
 categories <- unique(subjId) 
 numberOfCategories <- length(categories)
@@ -291,42 +507,14 @@ durbinWatsonTest(mo2) #the residuals are autocorrelated
 
 
 fit <- glmer(clo~(tOut*tInOp) + (1|subjId) + (day|subjId) ,family = Gamma(link = "identity"),
-             data = cloth)
+             data = dat)
 summary(fit)
 plot(fit)
 
 
 ####END OF 5
-####START OF 6
-
-nll <- function(par){
-  -sum(dgamma(cloth$clo, shape = (par[1] + (cloth$sex == 'female')*par[2]), scale = par[3], log = T))
-}
-opt <- optim(c(1, .5, .02), nll, method = "L-BFGS-B", lower=c(0, 0, 0.00001))
-2*opt$value + 6
-
-xs = seq(0,2,length.out=50)
-plot(xs, dgamma(xs, shape = 11.50164779, scale=0.04592705), type='l', col='blue')
-lines(xs, dgamma(xs, shape = 11.50164779 + 0.97329550, scale=0.04592705), col='red')
-
-
-profile_likelihood <- function(lambda, data) {
-  nll <- function(par){
-    -sum(dgamma(data$clo, shape = (par[1] + (data$sex == 'female')*lambda), scale = par[2], log = T))
-  }
-  optim(c(1, 1), nll, method = "L-BFGS-B", lower=c(0,0.001))$value
-}
-
-lambdas <- seq(0, 2, length.out=100)
-
-plik <- sapply(lambdas, profile_likelihood, cloth)
-
-
-
-plot(lambdas, exp(-plik) / max(exp(-plik)), type='l' )
-title(ylab = 'Scaled')
-
-modmw = glm(clo~sex, family = Gamma(link = "identity"), data = cloth)
+####START OF 6 IGNORE IT
+modmw = glm(clo~sex, family = Gamma(link = "identity"), data = dat)
 summary(modmw)
 par(mfrow=c(2,2))
 plot(modmw)  
@@ -342,9 +530,9 @@ profile_likelihood <- sapply(lambda_range, log_likelihood)
 plot(lambda_range, profile_likelihood/min(profile_likelihood), type = "l", xlab = "Weight/dispersion parameter", ylab = "Profile log-likelihood")
 dev.new()
 m = lambda_range[profile_likelihood==min(profile_likelihood)]
-w
+
 w = as.numeric(sex=="male") + as.numeric(sex=="female")/coefficients[1]
-gw = glm(clo~(tOut + sex + tInOp + tOut:sex + tOut:tInOp + tInOp:sex), family = Gamma(link = "identity"), data = cloth, weights = w )
+gw = glm(clo~(tOut + sex + tInOp + tOut:sex + tOut:tInOp + tInOp:sex), family = Gamma(link = "identity"), data = dat, weights = w )
 logLik(gw)
 logLik(modi1)
 summary(gw)
@@ -361,7 +549,7 @@ axis(2)
 
 
 #the problem seems to be solved now
-detach(cloth)
+detach(dat)
 
 ####
 rm(list=ls())
@@ -381,8 +569,6 @@ mod = glm(infections~(age+sex + swimmer + location) + age:sex + swimmer:location
 summary(mod)
 par(mfrow=c(2,2))
 plot(mod)  
-
-gamma(age + sex + swimmer, 1 + sex )
 
 1 - pchisq(2.5421, 9) #Really good.
 
@@ -437,5 +623,5 @@ testOverdispersion(sim_fmp)
 #there is no evidence of overdispersion, so we choose the initial model
 
 
-
 detach(swim)
+
