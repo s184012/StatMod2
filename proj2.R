@@ -8,9 +8,13 @@ library(lme4)
 library(MASS)
 library(SuppDists)
 library(GGally)
-install.packages("bbmle")
 library(bbmle)
 rm(list=ls())
+
+save_fig = function(name, figure = last_plot()) {
+  ggsave(plot = figure, file = paste(name, '.pdf', sep=''), path = 'figs', width=10*0.8, height = 6*0.8)
+}
+
 
 ####### How to plot
 Vplot <- data.frame(V=Vplot)
@@ -126,6 +130,76 @@ drop1(modi1, test = "F")
 #No evidence to reduce, we use the complete model
 
 summary(modi1)  #Best AIC
+
+
+get_contour_predict <- function(model, title) {
+  prediction_tOut = seq(min(cloth$tOut), max(cloth$tOut), length.out=50)
+  prediction_tInOp = seq(min(cloth$tInOp), max(cloth$tInOp), length.out=50)
+  
+  pred_df <- expand_grid(
+    tOut = prediction_tOut,
+    tInOp = prediction_tInOp,
+    sex = cloth$sex
+  )
+  
+  pred_out <- predict(model, newdata=pred_df, type="response")
+  pred_out <- cbind(pred_df, pred_out, model=title)
+}
+
+plot_contour <- function(model, title) {
+  prediction_tOut = seq(min(cloth$tOut), max(cloth$tOut), length.out=50)
+  prediction_tInOp = seq(min(cloth$tInOp), max(cloth$tInOp), length.out=50)
+  
+  pred_df <- expand_grid(
+    tOut = prediction_tOut,
+    tInOp = prediction_tInOp,
+    sex = cloth$sex
+  )
+  
+  pred_out <- predict(model, newdata=pred_df, type="response")
+  pred_out <- cbind(pred_df, pred_out)
+  
+  pred_out |> 
+    ggplot(aes(x=tInOp, y=tOut, z=pred_out)) +
+    geom_contour_filled(breaks=seq(0, 1, by=0.1), ) +
+    facet_wrap(vars(sex)) +
+    labs(
+      title = title
+    ) +
+    scale_color_steps(breaks=seq(0, 1, by=0.1), nice.breaks = F)
+}
+
+
+gamma_identity <- get_contour_predict(modi1, "Gamma, identity")
+inverse <- get_contour_predict(mod5, "Gamma, inverse")
+log <- get_contour_predict(modl5, "Gamma, log")
+
+link_plot_df <- rbind(inverse, log, gamma_identity)
+link_comparison <- link_plot_df |> 
+  ggplot(aes(x=tInOp, y=tOut, z=pred_out)) +
+  geom_contour_filled(breaks=seq(0, 1, by=0.1)) +
+  facet_grid(cols = vars(sex), rows=vars(model)) +
+  labs(
+    title = "Link Comparison"
+  )
+save_fig("link_comparison", link_comparison)
+
+inv_gauss <- get_contour_predict(modinv3, "Inverse Gaussian, 1/mu^2)")
+plot_df <- rbind(gamma_identity, inv_gauss)
+
+gamma_vs_inv_gauss <- plot_df |> 
+  ggplot(aes(x=tInOp, y=tOut, z=pred_out)) +
+  geom_contour_filled(breaks=append(seq(0, .9, by=0.1), seq(1, 5, by=1))) +
+  facet_grid(cols = vars(sex), rows=vars(model)) +
+  labs(
+    title = "Gamma vs Inverese Gaussian"
+  )
+
+
+
+save_fig("gamma_vs_inv_gauss", gamma_vs_inv_gauss)
+
+
 
 
 
@@ -253,7 +327,7 @@ drop1(mo, test = "F")
 mo2 <- update(mo,.~.-tOut:tInOp)
 drop1(mo2, test = "F")
 summary(mo2) #Better than before
-par(mfrow=c(2,2))
+tOutpar(mfrow=c(2,2))
 plot(mo2)  
 #the model with subject Id seems to be better, given that it has a lower AIC
 
@@ -262,13 +336,51 @@ plot(mo2)
 
 
 ####START OF 5
-
-
-
+library(tidymodels)
 
 resDev5 <- residuals(mo2,type="pearson")
-categories <- unique(subjId) 
-numberOfCategories <- length(categories)
+
+res_frame <- tibble(subjId = cloth$subjId, day = cloth$day, residuals=resDev5)
+
+res <- res_frame |> 
+  nest(data=residuals) |> 
+  mutate(
+    acf_calc = map(data, ~acf(.x$residuals, lag.max=5, plot=F)),
+    tidied = map(acf_calc, tidy)
+  ) |> 
+  unnest(cols=tidied) |> 
+  select(-data, -acf_calc) |> 
+  filter(lag!=0) |> 
+  group_by(subjId, day) |> 
+  mutate(
+    n_obs = n(),
+    ci = qnorm((1 + .95)/2)/sqrt(n_obs)
+  ) |> 
+  mutate(
+    is_significant = abs(acf) > ci
+  )
+
+auto_corr_plot <- res |> 
+  ggplot(aes(x=interaction(subjId, day), y = acf, color=day)) +
+  geom_point() +
+  geom_hline(yintercept = min(res$ci), linetype='dashed') +
+  geom_hline(yintercept = -min(res$ci), linetype='dashed') +
+  facet_wrap(vars(lag)) +
+  labs(
+    title = "Auto correlation for each subject within each day, lag 1-5",
+    color = "Day"
+  ) +
+  scale_x_discrete(name="Subject on a given day", breaks = NULL) +
+  scale_y_continuous(
+    name="Auto correlation",
+    breaks=c(-1, round(-min(res$ci), 2),  0, round(min(res$ci),2), 1), 
+    limits = c(-1, 1), 
+    minor_breaks = NULL
+  )
+
+save_fig("auto_corr_plot", auto_corr_plot)
+
+categories <- unique(subjId) numberOfCategories <- length(categories)
 DW = rep(0, numberOfCategories)
 
 
@@ -312,7 +424,12 @@ lines(xs, dgamma(xs, shape = 11.50164779 + 0.97329550, scale=0.04592705), col='r
 
 profile_likelihood <- function(lambda, data) {
   nll <- function(par){
-    -sum(dgamma(data$clo, shape = (par[1] + (data$sex == 'female')*lambda), scale = par[2], log = T))
+    is_female <- data$sex == 'female'
+    weights <- is_female * par[1] + !is_female * par[2]
+    shape_par <- weights / par[3]^2
+    design_mat <- model.matrix(~ subjId + tOut + tInOp, data=cloth)
+    scale_par <- X %*% par[4:length(design_mat)] / shape_par
+    -sum(dgamma(data$clo, shape = shape_par, scale = scale_par, log = T))
   }
   optim(c(1, 1), nll, method = "L-BFGS-B", lower=c(0,0.001))$value
 }
