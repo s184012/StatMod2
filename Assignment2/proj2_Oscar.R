@@ -1,4 +1,5 @@
 library(tidyverse)
+library(broom)
 library(dplyr)
 library(DHARMa)
 library(car)
@@ -11,6 +12,57 @@ library(GGally)
 #install.packages("bbmle")
 library(bbmle)
 rm(list=ls())
+
+
+
+
+# Load data ---------------------------------------------------------------
+
+load('data.rds')
+
+# Contour plot ------------------------------------------------------------
+
+save_fig = function(name, figure = last_plot()) {
+  ggsave(plot = figure, file = paste(name, '.pdf', sep=''), path = 'figs', width=10*0.8, height = 6*0.8)
+}
+
+get_contour_predict <- function(..., with_formula) {
+  predictions <- data.frame()
+  prediction_tOut = seq(min(cloth$tOut), max(cloth$tOut), length.out=50)
+  prediction_tInOp = seq(min(cloth$tInOp), max(cloth$tInOp), length.out=50)
+  pred_df <- expand_grid(
+    tOut = prediction_tOut,
+    tInOp = prediction_tInOp,
+    sex = cloth$sex
+  )
+  for (model in list(...)){
+    name = paste(model$family$family, model$family$link, sep=", ")
+    if(with_formula){
+      name <- paste0(name, ': ', paste(model$call)[2])
+    }
+    print(name)
+    pred_out <- predict(model, newdata=pred_df, type="response")
+    pred_out <- cbind(pred_df, pred_out, model=name)
+    predictions <- rbind(predictions, pred_out)
+  }
+  
+  return(predictions)
+  
+}
+
+plot_contour <- function(..., title, with_formula=F) {
+  predictions <- get_contour_predict(..., with_formula=with_formula)
+  predictions |> 
+    ggplot(aes(x=tInOp, y=tOut, z=pred_out)) +
+    geom_contour_filled(breaks=seq(0, 1, by=0.1), ) +
+    facet_grid(cols=vars(sex), rows = vars(model)) +
+    labs(
+      title = title
+    )
+}
+
+
+
 
 ####### How to plot
 Vplot <- data.frame(V=Vplot)
@@ -56,6 +108,8 @@ modinv3 <- update(modinv2,.~.-tInOp:sex)
 anova(modinv3,test="F")
 summary(modinv3)
 plot(modinv3)
+mod_invGauss_1mu2 <- modinv3
+
 
 modinv = glm(clo~(tOut*tInOp*sex), family = inverse.gaussian(link = "inverse"), data = dat)
 summary(modinv) 
@@ -66,10 +120,13 @@ modinv3 <- update(modinv2,.~.-tInOp:sex)
 anova(modinv3,test="F")
 summary(modinv3) #934
 plot(modinv3)
+mod_invGauss_inverse <- modinv3
 
 modinv_best = glm(clo~(tOut*tInOp*sex), family = inverse.gaussian(link = "identity"), data = dat)
 summary(modinv_best) #950
-anova(modinv_best,test="F") #BEST ONE FOR INVERSE!!
+anova(modinv_best,test="F") #BEST ONE FOR INVERSE!! <--- ?? identity best? 
+
+mod_invGauss_identity <- modinv_best
 
 
 modinv = glm(clo~(tOut*tInOp*sex), family = inverse.gaussian(link = "log"), data = dat)
@@ -81,6 +138,8 @@ modinv3 <- update(modinv2,.~.-tInOp:sex)
 anova(modinv3,test="F")
 summary(modinv3)
 plot(modinv3)
+
+mod_invGauss_log = modinv3
 
 
 #what is this????
@@ -97,6 +156,7 @@ modgauss$aic #958
 par(mfrow=c(2,2))
 plot(modgauss)  
 anova(modgauss,test="F")
+mod_gauss_identity <- modgauss
 
 #what is this?????#what is this?????#what is this?????#what is this?????#what is this?????#what is this?????
 #what is this?????#what is this?????#what is this?????#what is this?????#what is this?????#what is this?????
@@ -120,6 +180,7 @@ modgausslog_final<-modgausslog
 summary(modgausslog_final) #952
 plot(modgausslog_final)
 
+mod_gauss_log <- modgausslog
 
 modgaussinv = glm((clo)~(tOut*tInOp*sex), family = gaussian(link = "inverse"), data = dat)
 summary(modgaussinv)
@@ -129,6 +190,7 @@ anova(modgaussinv,test="F")
 summary(modgaussinv) #946.  looks kind of trash with lots of non-significant parameters.
 par(mfrow=c(2,2))
 plot(modgaussinv)  
+mod_gauss_inverse <- modgaussinv
 #####
 
 #Gamma functions:
@@ -153,6 +215,8 @@ drop1(mod5, test = "F")
 summary(mod5) #968.9
 par(mfrow=c(2,2))
 plot(mod5)  
+
+mod_gamma_inverse <- mod5
 #####################
 
 modl1 = glm(clo~tOut*tInOp*sex, family = Gamma(link = "log"), data = dat)
@@ -172,6 +236,7 @@ summary(modl5)   #aic = -980.51
 par(mfrow=c(2,2))
 plot(modl5)  
 
+mod_gamma_log <- modl5
 ####
 
 modi1 = glm(clo~(tOut*tInOp*sex), family = Gamma(link = "identity"), data = dat)
@@ -182,7 +247,15 @@ drop1(modi1, test = "F")
 #No evidence to reduce, we use the complete model
 
 summary(modi1)  #Best AIC
+mod_gamma_identity <- modi1
 
+
+
+
+
+plot_contour(mod_gauss_identity, mod_gauss_inverse, mod_gauss_log, title='Gaussian predictions')
+plot_contour(mod_invGauss_log, mod_invGauss_inverse, mod_invGauss_1mu2, mod_invGauss_identity, title="Inverse Gaussian predictions")
+plot_contour(mod_gamma_identity, mod_gamma_inverse, mod_gamma_log, title='Gamma predictions')
 
 
 #CONCLUSION: gamma identity
@@ -192,7 +265,7 @@ mod_Gamma<-glm(clo~(tOut*tInOp*sex), family = Gamma(link = "identity"), data = d
 
 summary(mod_Gauss)$aic
 summary(mod_InvGauss)$aic
-summary(mod_Gamma)
+summary(mod_Gamma)$aic
 
 #CONCLUSION: gamma identity
 mod_Gauss_sqr<-glm(clo~I(tOut^2)*sex+I(tInOp^2)*sex+sex*tOut*tInOp, family = gaussian(link = "identity"), data = dat)
@@ -248,12 +321,17 @@ summary(mod_Gauss_sqr)
 plot(mod_Gauss_sqr)
 plot(mod_Gauss)
 
+plot_contour(mod_gamma_identity, mod_invGauss_identity, mod_gauss_identity, mod_Gauss_sqr, title = 'Compare best models', with_formula = T)
+
 
 summary(mod_InvGauss)
 summary(mod_InvGauss_sqr)
 
 summary(mod_Gamma)
 summary(mod_Gamma_sqr)
+
+plot_contour(mod_InvGauss, mod_InvGauss_sqr, with_formula = T, title='invGaus sqr')
+plot_contour(mod_Gamma, mod_Gamma_sqr, with_formula = T, title='Gamma sqr')
 
 sga <- simulateResiduals(mod_Gauss)
 plot(sga)
