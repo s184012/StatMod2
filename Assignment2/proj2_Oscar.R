@@ -23,10 +23,10 @@ load('data.rds')
 # Contour plot ------------------------------------------------------------
 
 save_fig = function(name, figure = last_plot()) {
-  ggsave(plot = figure, file = paste(name, '.pdf', sep=''), path = 'figs', width=10*0.8, height = 6*0.8)
+  ggsave(plot = figure, file = paste(name, '.pdf', sep=''), path = 'figs', width=10*0.8, height = 6*0.8, dpi=1200)
 }
 
-get_contour_predict <- function(..., with_formula) {
+get_contour_predict <- function(..., with_formula, with_model) {
   predictions <- data.frame()
   prediction_tOut = seq(min(cloth$tOut), max(cloth$tOut), length.out=50)
   prediction_tInOp = seq(min(cloth$tInOp), max(cloth$tInOp), length.out=50)
@@ -36,7 +36,11 @@ get_contour_predict <- function(..., with_formula) {
     sex = cloth$sex
   )
   for (model in list(...)){
-    name = paste(model$family$family, model$family$link, sep=", ")
+    name <- ""
+    if(with_model){
+      name = paste0(model$family$family, ', ')
+    }
+    name <- paste0(name, model$family$link)
     if(with_formula){
       name <- paste0(name, ': ', paste(model$call)[2])
     }
@@ -50,8 +54,8 @@ get_contour_predict <- function(..., with_formula) {
   
 }
 
-plot_contour <- function(..., title, with_formula=F) {
-  predictions <- get_contour_predict(..., with_formula=with_formula)
+plot_contour <- function(..., title, with_formula=F, with_model=T) {
+  predictions <- get_contour_predict(..., with_formula=with_formula, with_model = with_model)
   predictions |> 
     ggplot(aes(x=tInOp, y=tOut, z=pred_out)) +
     geom_contour_filled(breaks=seq(0, 1, by=0.1), ) +
@@ -59,31 +63,32 @@ plot_contour <- function(..., title, with_formula=F) {
     labs(
       title = title
     )
+  
 }
 
 
 
 
-####### How to plot
-Vplot <- data.frame(V=Vplot)
-mu1 <- predict(logis.glm,newdata=Vplot,type="response",se=TRUE)$fit
-se1 <- predict(logis.glm,newdata=Vplot, type="response", se=TRUE)$se.fit
-mu2 <- predict(logis.glm2,newdata=Vplot,type="response",se=TRUE)$fit
-se2 <- predict(logis.glm2,newdata=Vplot, type="response", se=TRUE)$se.fit
-muOD <- predict(logis.glm.OD,newdata=Vplot,type="response",se=TRUE)$fit
-seOD <- predict(logis.glm.OD,newdata=Vplot, type="response", se=TRUE)$se.fit
-
-par(mfrow=c(1,1))
-matplot(Vplot,cbind(mu1,mu2,muOD),type="l")
-polygon(c(Vplot$V,rev(Vplot$V)),c(muOD+2*seOD,rev(muOD-2*seOD)),border=FALSE,
-        col=gray(0.75))
-polygon(c(Vplot$V,rev(Vplot$V)),c(mu1+2*se1,rev(mu1-2*se1)),border=FALSE,
-        col=gray(0.5))
-polygon(c(Vplot$V,rev(Vplot$V)),c(mu2+2*se2,rev(mu2-2*se2)),border=FALSE,
-        col=gray(0.25))
-matlines(Vplot,cbind(mu1,mu2,muOD),lty=1,lwd=2)
-points(V,p,pch=19,col="blue")
-####
+# ####### How to plot
+# Vplot <- data.frame(V=Vplot)
+# mu1 <- predict(logis.glm,newdata=Vplot,type="response",se=TRUE)$fit
+# se1 <- predict(logis.glm,newdata=Vplot, type="response", se=TRUE)$se.fit
+# mu2 <- predict(logis.glm2,newdata=Vplot,type="response",se=TRUE)$fit
+# se2 <- predict(logis.glm2,newdata=Vplot, type="response", se=TRUE)$se.fit
+# muOD <- predict(logis.glm.OD,newdata=Vplot,type="response",se=TRUE)$fit
+# seOD <- predict(logis.glm.OD,newdata=Vplot, type="response", se=TRUE)$se.fit
+# 
+# par(mfrow=c(1,1))
+# matplot(Vplot,cbind(mu1,mu2,muOD),type="l")
+# polygon(c(Vplot$V,rev(Vplot$V)),c(muOD+2*seOD,rev(muOD-2*seOD)),border=FALSE,
+#         col=gray(0.75))
+# polygon(c(Vplot$V,rev(Vplot$V)),c(mu1+2*se1,rev(mu1-2*se1)),border=FALSE,
+#         col=gray(0.5))
+# polygon(c(Vplot$V,rev(Vplot$V)),c(mu2+2*se2,rev(mu2-2*se2)),border=FALSE,
+#         col=gray(0.25))
+# matlines(Vplot,cbind(mu1,mu2,muOD),lty=1,lwd=2)
+# points(V,p,pch=19,col="blue")
+# ####
 
 dat = read.csv("clothing.csv", header = T)
 str(dat)
@@ -139,7 +144,7 @@ anova(modinv3,test="F")
 summary(modinv3)
 plot(modinv3)
 
-mod_invGauss_log = modinv3
+mod_invGauss_log <- modinv3
 
 
 #what is this????
@@ -253,10 +258,15 @@ mod_gamma_identity <- modi1
 
 
 
-plot_contour(mod_gauss_identity, mod_gauss_inverse, mod_gauss_log, title='Gaussian predictions')
-plot_contour(mod_invGauss_log, mod_invGauss_inverse, mod_invGauss_1mu2, mod_invGauss_identity, title="Inverse Gaussian predictions")
-plot_contour(mod_gamma_identity, mod_gamma_inverse, mod_gamma_log, title='Gamma predictions')
-
+gauss_compare <- plot_contour(mod_gauss_identity, mod_gauss_inverse, mod_gauss_log, title='Gaussian predictions')
+gauss_compare
+save_fig('gauss_compare', gauss_compare)
+inv_gauss_compare <- plot_contour(mod_invGauss_log, mod_invGauss_inverse, mod_invGauss_1mu2, mod_invGauss_identity, title="Inverse Gaussian predictions", with_model = 'F')
+inv_gauss_compare
+save_fig('inv_gauss_compare', inv_gauss_compare)
+gamma_compare <- plot_contour(mod_gamma_identity, mod_gamma_inverse, mod_gamma_log, title='Gamma predictions', with_model = F)
+gamma_compare
+save_fig('gamma_compare', gamma_compare)
 
 #CONCLUSION: gamma identity
 mod_Gauss<-glm(clo~(tOut*tInOp*sex), family = gaussian(link = "identity"), data = dat)
@@ -321,9 +331,13 @@ summary(mod_Gauss_sqr)
 plot(mod_Gauss_sqr)
 plot(mod_Gauss)
 
-plot_contour(mod_gamma_identity, mod_invGauss_identity, mod_gauss_identity, mod_Gauss_sqr, title = 'Compare best models', with_formula = T)
 
+# Q1: plot_compare --------------------------------------------------------
 
+q1_pred_compare <- plot_contour(mod_gamma_identity, mod_invGauss_identity, mod_gauss_identity, title = 'Compare best models', with_formula = F)
+save_fig('q1_pred_compare', q1_pred_compare)
+
+q1_pred_compare
 summary(mod_InvGauss)
 summary(mod_InvGauss_sqr)
 
@@ -537,24 +551,105 @@ pSex
 
 confint(modi1)
 predint = predict(modi1, dat, intervals="prediction", se.fit = TRUE ) 
+
+predictions <- get_contour_predict(mod_gamma_identity, with_formula=F)
+
+prediction_plot <- ggplot(mapping = aes(x=tInOp, y=tOut)) +
+geom_contour_filled(aes(z=pred_out), predictions, breaks=seq(0, 1, by=0.1), show.legend = F) +
+geom_point(data=cloth, color="black", size=2.5) +
+geom_point(aes(color=clo), cloth) +
+facet_wrap(vars(sex)) +
+scale_color_continuous(type="viridis")
+# facet_grid(cols=vars(predictions$sex), rows = vars(predictions$model)) +
+# labs(
+#   title = title
+# )
+save_fig('prediction_plot', prediction_plot)
 ####END OF 3
 
 ####START OF 4
 
-mo = glm(clo~(tOut*tInOp) + subjId, family = Gamma(link = "identity"), data = dat)
+mo = glm(clo~tOut*subjId*tInOp, family = Gamma(link = "identity"), data = dat)
 summary(mo)
 
 par(mfrow=c(2,2))
 plot(mo)  
 
 drop1(mo, test = "F")
-mo2 <- update(mo,.~.-tOut:tInOp)
+mo2 <- update(mo,.~.-tOut:tInOp:subjId)
 drop1(mo2, test = "F")
 summary(mo2) #Better than before
+mo3 <- update(mo2,.~.-tOut:tInOp)
+drop1(mo3, test="F")
+
+summary(mo)
+summary(mo3)
+
+
 par(mfrow=c(2,2))
-plot(mo2)  
+plot(mo3)
+summary(mo3)
+
 #the model with subject Id seems to be better, given that it has a lower AIC
 
+# plot mo2 ----------------------------------------------------------------
+
+
+
+get_mo2_predict <- function(..., with_formula, with_model) {
+  predictions <- data.frame()
+  prediction_tOut = seq(min(cloth$tOut), max(cloth$tOut), length.out=50)
+  prediction_tInOp = seq(min(cloth$tInOp), max(cloth$tInOp), length.out=50)
+  subjects <- cloth |>
+    filter(subjId %in% c(55, 59, 65, 75, 107, 129)) |> 
+    pull(subjId) |>
+    unique()
+    
+  
+  pred_df <- expand_grid(
+    tOut = prediction_tOut,
+    tInOp = prediction_tInOp,
+    subjId = subjects
+  )
+  for (model in list(...)){
+    name <- ""
+    if(with_model){
+      name = paste0(model$family$family, ', ')
+    }
+    name <- paste0(name, model$family$link)
+    if(with_formula){
+      name <- paste0(name, ': ', paste(model$call)[2])
+    }
+    print(name)
+    pred_out <- predict(model, newdata=pred_df, type="response")
+    pred_out <- cbind(pred_df, pred_out, model=name)
+    predictions <- rbind(predictions, pred_out)
+  }
+  
+  return(predictions)
+  
+}
+
+plot_contour_mo2 <- function(..., title, with_formula=F, with_model=T) {
+  predictions <- get_mo2_predict(..., with_formula=with_formula, with_model = with_model)
+  obs <- cloth |>
+    filter(subjId %in% unique(predictions$subjId))
+  ggplot(mapping = aes(x=tInOp, y=tOut)) +
+    geom_contour_filled(aes(z=pred_out), predictions, breaks=seq(0.3, 1, by=0.01), show.legend = F, ) +
+    geom_point(data=obs, color="black", size=2.5) +
+    geom_point(aes(color=clo), obs) +
+    facet_wrap(vars(subjId)) +
+    # scale_fill_fermenter() +
+    scale_color_continuous(type='viridis') +
+    labs(
+      title=title
+    )
+  
+}
+
+predictions_with_subjects <- plot_contour_mo2(mo3, title = "With Subjects")
+predictions_with_subjects
+save_fig('predictions_with_subjects', predictions_with_subjects)
 ####END OF 4
 
 
@@ -591,7 +686,7 @@ plot(fit)
 
 
 ####END OF 5
-####START OF 6 IGNORE IT
+####START OF 6
 modmw = glm(clo~sex, family = Gamma(link = "identity"), data = dat)
 summary(modmw)
 par(mfrow=c(2,2))

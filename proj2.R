@@ -380,7 +380,8 @@ auto_corr_plot <- res |>
 
 save_fig("auto_corr_plot", auto_corr_plot)
 
-categories <- unique(subjId) numberOfCategories <- length(categories)
+categories <- unique(subjId) 
+numberOfCategories <- length(categories)
 DW = rep(0, numberOfCategories)
 
 
@@ -412,36 +413,62 @@ plot(fit)
 ####START OF 6
 
 nll <- function(par){
-  -sum(dgamma(cloth$clo, shape = (par[1] + (cloth$sex == 'female')*par[2]), scale = par[3], log = T))
+  is_female <- cloth$sex == 'female'
+  weights <- is_female * par[1] + (!is_female)*par[2]
+  -sum(dgamma(cloth$clo, shape = weights, scale = par[3], log = T))
 }
-opt <- optim(c(1, .5, .02), nll, method = "L-BFGS-B", lower=c(0, 0, 0.00001))
-2*opt$value + 6
+opt <- optim(c(1,1,1), nll, method = "L-BFGS-B", lower=c(0.001, 0.001, 0.001, 0.001))
+
+opt$par
+
+
+par(mfrow=c(1,1))
 
 xs = seq(0,2,length.out=50)
 plot(xs, dgamma(xs, shape = 11.50164779, scale=0.04592705), type='l', col='blue')
 lines(xs, dgamma(xs, shape = 11.50164779 + 0.97329550, scale=0.04592705), col='red')
 
 
-profile_likelihood <- function(lambda, data) {
+profile_likelihood <- function(lambda, data, sex) {
+  design_mat <- model.matrix(~ subjId + tOut + tInOp, data=cloth)
+  n_par <- 2 #ncol(design_mat) + 2
   nll <- function(par){
-    is_female <- data$sex == 'female'
-    weights <- is_female * par[1] + !is_female * par[2]
-    shape_par <- weights / par[3]^2
-    design_mat <- model.matrix(~ subjId + tOut + tInOp, data=cloth)
-    scale_par <- X %*% par[4:length(design_mat)] / shape_par
-    -sum(dgamma(data$clo, shape = shape_par, scale = scale_par, log = T))
+    is_female <- data$sex == sex
+    weights <- is_female * lambda + (!is_female)*par[1]
+    -sum(dgamma(data$clo, shape = weights, scale = par[2], log = T))
   }
-  optim(c(1, 1), nll, method = "L-BFGS-B", lower=c(0,0.001))$value
+  optim(rep(1, n_par), nll, method = "L-BFGS-B", lower=c(rep(0.001, n_par)))$value
 }
 
-lambdas <- seq(0, 2, length.out=100)
+load("data.rds")
+profile_2d <- function(grid){
+  nll <- function(par){
+    is_female <- cloth$sex == "female"
+    weights <- is_female * grid[1] + (!is_female)*grid[2]
+    -sum(dgamma(cloth$clo, shape = weights, scale = par, log = T))
+  }
+  optimize(nll, c(0.0001, 10))$objective
+  
+}
 
-plik <- sapply(lambdas, profile_likelihood, cloth)
+# male_lambda <- seq(10, 13, length.out=50)
+# female_lambda <- seq(11, 14, length.out=50)
+# grid = expand.grid(female_lambda = female_lambda, male_lambda=male_lambda)
+# profile_values <- apply(grid, 1, profile_2d)
+# grid$likelihood <- nll_to_L(profile_values)
+# # contourplot(likelihood ~ female_lambda * male_lambda, grid, )
+lambdas = seq(9, 15, length.ou=100)
+nll_to_L <- \(nll) exp(-nll) / max(exp(-nll))
+nll_female <- sapply(lambdas, profile_likelihood, cloth, 'female')
+nll_male <- sapply(lambdas, profile_likelihood, cloth, 'male')
 
+par(mfrow=c(1,1))
+plot(lambdas, nll_to_L(nll_female), type='l', col='red', ylab="", xlab="")
+lines(lambdas, nll_to_L(nll_male), col='blue')
+abline(h=.85, lty='dashed')
+title(ylab = 'Scaled Likelihood', xlab="Dispersion Parameter")
+legend(9, 1, c("Female", "Male", "95% Conf."), col = c("red", "blue", "black"), lty=c("solid", "solid", "dashed"))
 
-
-plot(lambdas, exp(-plik) / max(exp(-plik)), type='l' )
-title(ylab = 'Scaled')
 
 modmw = glm(clo~sex, family = Gamma(link = "identity"), data = cloth)
 summary(modmw)
