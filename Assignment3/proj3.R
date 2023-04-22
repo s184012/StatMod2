@@ -30,47 +30,165 @@ attach(cloth)
 
 ####START OF 1
 boxplot(clo~subjId)
+modn <- lme(clo~tOut+tInOp+tOut:tInOp
+            ,random =~ 1|subjId,
+             data=cloth, method="ML")
+modn1 <- lme(clo~tOut+tInOp
+             ,random =~ 1|subjId,
+             data=cloth, method="ML")
+modn2 <- lme(clo~tOut
+             ,random =~ 1|subjId,
+             data=cloth, method="ML") #this one is the best
+summary(modn)
+summary(modn1)
+summary(modn2)
+anova(modn,modn1)
 
-modi <- glmer(clo~tOut+tInOp+tOut:tInOp + (1|subjId), family = Gamma(link = "identity"),
-                   data=cloth)
-modni <- glmer(clo~tOut+tInOp+ (1|subjId), family = Gamma(link = "identity"),
-              #orrelation=corGaus(form=~as.numeric(month)|cage,nugget=TRUE),
+plot(modn)
+modg <- glmmTMB(clo~tOut+tInOp+ (1|subjId), family = Gamma(link = "identity"),
               data=cloth)
-summary(modni)
-plot(modni)
-summary(modi)
-plot(modi)
-anova(modi,modni)
-#interaction non significant
+summary(modg)
+#no interaction because of convergence problems with GLMMTB
 
-modri <- glmer(clo~tOut+tInOp + (1|subjId/day), family = Gamma(link = "identity"),
-                      data=cloth)
-summary(modri)
-plot(modri)
-anova(modri, modi)
-#The models are indeed different, including that information on the days is good
 
-mod_appro = glm(clo~tOut+tInOp+ subDay, family = Gamma(link = "identity"),
+###2
+
+mod_nest <- lme(clo~tOut
+             ,random =~ 1|subjId/day,
+             data=cloth, method="ML")
+summary(mod_nest) #improves dramatically
+anova(modn2, mod_nest) #the models are indeed different
+
+
+#Try with the approximation of subDay
+modn_appr <- lme(clo~tOut
+                 ,random =list(subjId=~1,subDay=~1),
+                 data=cloth, method="ML") 
+summary(modn_appr)
+anova(modn_appr, mod_nest) #same model
+
+
+
+modg_nest <- glmmTMB(clo~tOut+ (1|subjId/day), family = Gamma(link = "identity"),
+                data=cloth)
+summary(modg_nest)
+modg_appro = glmmTMB(clo~tOut+ (1|subDay) + (1|subjId), family = Gamma(link = "identity"),
                   data=cloth)
-summary(mod_appro)
-par(mfrow=c(2,2))
-plot(mod_appro)
-logLik(mod_appro)
-logLik(modri)
-#Maybe reduce the models afterwards, if there is evidence to do so 
+summary(modg_appro)
+#the Gamma model seems to be a better fit. Once again SubDay is an exact approximation
+#should we add other fixed effects to it?
 
-mod_autocorr <- glmer(clo~tOut+tInOp+ (1|subDay) + (time|subDay), family = Gamma(link = "identity"),
+
+#CORR STRUCTURE (4)
+mod_autarima <- lme(clo~tOut,random =~ 1|subDay,
+               correlation = corAR1(form =~ as.numeric(time)|subDay),
+                data=cloth, method="ML")
+mod_autgauss <- lme(clo~tOut,random =~ 1|subDay,
+                    correlation = corGaus(form =~ as.numeric(time)|subDay),
+                    data=cloth, method="ML")
+mod_autexp <- lme(clo~tOut,random =~ 1|subDay,
+                    correlation = corExp(form =~ as.numeric(time)|subDay),
+                    data=cloth, method="ML")
+mod_autcompsymm <- lme(clo~tOut,random =~ 1|subDay,
+                  correlation = corCompSymm(form =~ as.numeric(time)|subDay),
+                  data=cloth, method="ML")
+mod_autarma<- lme(clo~tOut,random =~ 1|subDay,
+                       correlation = corARMA(form =~ as.numeric(time)|subDay),
+                       data=cloth, method="ML")
+mod_autlin<- lme(clo~tOut,random =~ 1|subDay,
+                  correlation = corLin(form =~ as.numeric(time)|subDay),
+                  data=cloth, method="ML")
+mod_autratio<- lme(clo~tOut,random =~ 1|subDay,
+                 correlation = corRatio(form =~ as.numeric(time)|subDay),
+                 data=cloth, method="ML")
+mod_autsphe<- lme(clo~tOut,random =~ 1|subDay,
+                   correlation = corSpher(form =~ as.numeric(time)|subDay),
+                   data=cloth, method="ML")
+anova(mod_autarima, mod_autgauss, mod_autcompsymm, mod_autexp, mod_autlin, mod_autsphe, mod_autratio)
+
+#Aut Exp the best one
+
+#Don't know how to remove intercepts here
+modg_autdiag = glmmTMB(clo~tOut+ (1|subDay) + diag(time|subDay), family = Gamma(link = "identity"),
+                     data=cloth)
+modg_autarima = glmmTMB(clo~tOut+ (1|subDay) + ar1(as.factor(time) + 1|subDay), family = Gamma(link = "identity"),
+                       data=cloth)
+summary(modg_autarima)
+modg_autcs = glmmTMB(clo~tOut+ (1|subDay) + cs(time+1|subDay), family = Gamma(link = "identity"),
+                       data=cloth)
+summary(modg_autcs)
+
+modg_autexp = glmmTMB(clo~tOut+ (1|subDay) + exp(time+1|subDay), family = Gamma(link = "identity"),
+                       data=cloth)
+modg_autgau = glmmTMB(clo~tOut+ (1|subDay) + gau(time+1|subDay), family = Gamma(link = "identity"),
+                       data=cloth)
+modg_autmat = glmmTMB(clo~tOut+ (1|subDay) + mat(time+1|subDay), family = Gamma(link = "identity"),
                       data=cloth)
-summary(mod_autocorr)
-#control = glmerControl(correlation=corAR1(form =~ time|subDay)))
-#should we use nlme or lme? Should it be nested?
+modg_auttoep = glmmTMB(clo~tOut+ (1|subDay) + toep(time+1|subDay), family = Gamma(link = "identity"),
+                      data=cloth)
+modg_autrr = glmmTMB(clo~tOut+ (1|subDay) + rr(time+1|subDay), family = Gamma(link = "identity"),
+                      data=cloth)
 
-plot(mod_autocorr)
+
+#€xtensions
+
+
+
 #we could include the number of measurements within the days
 
-mod_autocorrcomp <- glmer(clo~tOut+tInOp+ (1|subDay) + (time/time2|subDay), family = Gamma(link = "identity"),
-                      data=cloth)
-summary(mod_autocorrcomp)
-anova(mod_autocorrcomp, mod_autocorr)
-#Including this other information improves the model
+mod_autocorrcomp <- lme(clo~tOut,random =~ 1|subDay,
+                        correlation = corExp(form =~ time2|subDay),
+                        data=cloth, method="ML")
+summary(mod_autocorrcomp)  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
