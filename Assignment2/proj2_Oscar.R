@@ -635,16 +635,19 @@ plot_contour_mo2 <- function(..., title, with_formula=F, with_model=T) {
   obs <- cloth |>
     filter(subjId %in% unique(predictions$subjId))
   ggplot(mapping = aes(x=tInOp, y=tOut)) +
-    geom_contour_filled(aes(z=pred_out), predictions, breaks=seq(0.3, 1, by=0.01), show.legend = F, ) +
+    # geom_contour_filled(aes(z=pred_out), predictions, breaks=seq(0.3, 1, by=0.05), show.legend = T, ) +
+    geom_raster(aes(fill = pred_out), predictions) +
+    geom_contour(aes(z = pred_out), predictions, color= 'black', bins = 20, alpha = 0.25) +
     geom_point(data=obs, color="black", size=2.5) +
     geom_point(aes(color=clo), obs) +
     facet_wrap(vars(subjId)) +
-    # scale_fill_fermenter() +
-    scale_color_continuous(type='viridis') +
+    scale_fill_viridis_c(aesthetics = c("fill", "color")) +
     labs(
-      title=title
+      title=title,
+      color="clo",
+      fill="clo"
     )
-  
+    
 }
 
 predictions_with_subjects <- plot_contour_mo2(mo3, title = "With Subjects")
@@ -652,7 +655,7 @@ predictions_with_subjects
 save_fig('predictions_with_subjects', predictions_with_subjects)
 ####END OF 4
 
-
+aic(mo3)
 
 ####START OF 5
 resDev5 <- residuals(mo2,type="pearson")

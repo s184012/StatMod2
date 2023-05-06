@@ -86,6 +86,7 @@ mean_variance_pr_person <- cloth |>
 mean_variance_pr_person
 
 development_in_clo_pr_person_pr_day <- cloth |> 
+  filter(day != 4) |> 
   group_by(subjId, day, .groups="drop") |> 
   mutate(time = cumsum(time)) |> 
   group_by(subjId, day, .groups="drop") |> # count observations pr. person pr. day
@@ -93,8 +94,12 @@ development_in_clo_pr_person_pr_day <- cloth |>
   filter(n > 2) |> # only include subjects with more than two observations that day.
   ggplot(aes(x=time, y=clo)) +
   geom_line(aes(group=subjId)) +
-  facet_grid(rows = vars(sex), cols=vars(day))
+  facet_grid(rows = vars(sex), cols=vars(day)) +
+  labs(
+    title="Variation in clo for each individual"
+  )
 development_in_clo_pr_person_pr_day
+
 
 temperature_is_independent_of_subject_and_day <- cloth |> 
   group_by(subjId, day, .groups="drop") |> 
