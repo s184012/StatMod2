@@ -7,7 +7,7 @@ library(nlme)
 library(lme4)
 library(MASS)
 library(SuppDists)
-library(GGally)
+library(GGally)o
 library(bbmle)
 rm(list=ls())
 
