@@ -25,21 +25,27 @@ attach(cloth)
 cloth
 str(cloth)
 
-library(mvtnorm)
 
 #PART 1
+library(mvtnorm)
 nll <- function(par){
   #mu=par[1],betasex=par[2],sigma_u=par[3],sigma=par[4]
   mu <- rep(par[1],803)
   mu[sex=="male"] <- mu[sex=="male"]+par[2]
   SIGMA <- diag(rep(par[4],803))
-  indexmatr <- matrix(subjId, nrow=length(subjId), ncol=length(subjId), byrow=TRUE)
-  SIGMA[indexmatr==t(indexmatr)] <- SIGMA[indexmatr==t(indexmatr)]+par[3]
-  
-  -dmvnorm(clo, mean = mu, sigma=SIGMA,log=TRUE,checkSymmetry = TRUE)
+  subject_matrix <- matrix(
+    subjId, 
+    nrow=length(subjId), 
+    ncol=length(subjId), 
+    byrow=TRUE
+    )
+  subject_index <- subject_matrix == t(subject_matrix)
+  SIGMA[subject_index] <- SIGMA[subject_index]+par[3]
+  -dmvnorm(clo, mean = mu, sigma=SIGMA,
+           log=TRUE, checkSymmetry = FALSE)
 }
 
-(op1 <- nlminb(c(0.5,1,1,1),nll)   lower=c(-1,-Inf,0,0))
+op1 <- nlminb(c(0.5,1,1,1),nll, lower=c(-1,-Inf,0,0))
 
 library(lme4)
 (fit0 <- lmer(clo~sex+(1|subjId),REML=FALSE))
@@ -83,21 +89,34 @@ SIGMA[indexmatr==t(indexmatr)] <- SIGMA[indexmatr==t(indexmatr)]+par[3]
 #PART 3 Sigma extra covariance if sub_i=sub_j and day_i=day_j
 
 nll <- function(par){
-  #mu=par[1],betasex=par[2],sigma_u2=par[3],sigma2=par[4],sigma_v2=par[5], alphasex = par[6]
-  mu <- rep(par[1],803)
-  mu[sex=="male"] <- mu[sex=="male"]+par[2]
-  SIGMA <- diag(rep(par[4]*(1+par[6]),803))
-  indexmatr <- matrix(subjId, nrow=length(subjId), ncol=length(subjId), byrow=TRUE)
-  SIGMA[indexmatr==t(indexmatr)] <- SIGMA[indexmatr==t(indexmatr)]+par[3]*(1+par[6])
+  mu <- par[1]
+  beta <- par[2]
+  sigma_u2 <- par[3]
+  sigma2 <- par[4]
+  sigma_v2 <- par[5]
+  alpha <- par[6]
   
-  indexmatr2 <- matrix(day, nrow=length(day), ncol=length(day), byrow=TRUE)
-  INDEXmat <- indexmatr==t(indexmatr) & indexmatr2==t(indexmatr2)
-  SIGMA[INDEXmat] <- SIGMA[INDEXmat] + par[5]*(1+par[6])
+  n_subjects <- length(subjId)
+  is_male <- sex == "male" 
+  subj_filter <- outer(subjId, subjId, FUN="==")
+  subj_day <- paste(subjId, day)
+  subj_day_filter <- outer(subj_day, subj_day, FUN="==")
   
-  -dmvnorm(clo, mean = mu, sigma=SIGMA,log=TRUE,checkSymmetry = TRUE)
+  betamale <- is_male*beta
+  mu <- rep(mu, n_subjects) + betamale
+  alphamale <- 1 - is_male*alpha
+  sigma2 <- diag(sigma2, n_subjects)
+  sigma_v2 <- subj_day_filter*sigma_v2
+  sigma_u2 <- subj_filter*sigma_u2
+  SIGMA <- (sigma2 + sigma_u2 + sigma_v2)*alphamale
+  
+  -dmvnorm(clo, mean = mu, sigma=SIGMA,log=TRUE,checkSymmetry = FALSE)
 }
+nll(par = c(-1,-1,.1,.1,.1,.1))
 
-(op3 <- nlminb(c(0.5,1,1,1,1,0), nll ,lower=c(-Inf,-Inf,0,0,0,0)) ) 
+(op3 <- optim(c(0.5,-0.5,1,1,1,.5), nll,
+              lower=c(-5,-5,1e-4,1e-4,1e-4,1e-4), upper = c(rep(1, 5), .99),
+              method = "L-BFGS-B"))
 op3
 
 library(lme4)
