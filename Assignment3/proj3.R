@@ -70,7 +70,8 @@ drop1(modg1, test = "Chisq")
 modg2 <- update(modg1,.~.-tInOp:tOut)
 drop1(modg2, test = "Chisq")
 summary(modg2)
-###2
+
+###3 PART 3
 
 mod_nest <- lme(clo~(tOut+tInOp+ sex)^2
              ,random =~ 1|subjId/day,
@@ -91,7 +92,12 @@ summary(mod_nest3)
 
 mod_nest3 <- lme(clo ~ tInOp + sex + tInOp:sex
                 ,random =~ 1|subjId/day,
-                data=cloth, method = "REML")
+                data=cloth, method = "ML")
+
+modn_appr3 <- lme(clo ~ tInOp + sex + tInOp:sex 
+                  ,random =list(subjId=~1,subDay=~1),
+                  data=cloth, method="REML") 
+mod_nest3 <-modn_appr3
 summary(mod_nest3)
 plot(mod_nest3)
 rand = ranef(mod_nest3)
@@ -113,7 +119,19 @@ modn_appr <- lme(clo~(tOut+tInOp+ sex)^2
                  ,random =list(subjId=~1,subDay=~1),
                  data=cloth, method="ML") 
 summary(modn_appr)
+summary(mod_nest1)
 anova(modn_appr, mod_nest1) #same model
+
+
+saveFig <- TRUE
+if(saveFig == TRUE){pdf("PA3_Random_Int_SubDay.pdf", width = 10*0.8, height = 8*0.8)}
+par(mfrow=c(1,1))
+hist(rand$subjId$`(Intercept)`, probability = TRUE, col = "gray", main = 'SubDay', xlab = 'Random intercept')
+abline(v = mean(rand$subjId$`(Intercept)`), col='red', lwd = 3)
+lines(density(rand$subjId$`(Intercept)`), col = 'green', lwd = 3)
+if(saveFig == TRUE){dev.off()}
+saveFig <- FALSE
+
 
 #Reduce
 drop1(modn_appr, test = "Chisq")
@@ -126,7 +144,7 @@ drop1(modn_appr3, test = "Chisq")
 summary(modn_appr3)
 modn_appr3 <- lme(clo ~ tInOp + sex + tInOp:sex 
                  ,random =list(subjId=~1,subDay=~1),
-                 data=cloth, method="REML") 
+                 data=cloth, method="ML") 
 summary(modn_appr3)
 summary(mod_nest3)
 anova(modn_appr3, mod_nest3)
@@ -152,41 +170,126 @@ summary(modg_appro)
 
 
 
+
+
+
+
 #CORR STRUCTURE (4)
-mod_autarima <- lme(clo~tOut + tInOp + sex + tOut:sex + tInOp:sex,random =~ 1|subDay,
+mod_autarima <- lme(clo~(tOut+tInOp+ sex)^2,random =~ 1|subDay,
                correlation = corAR1(form =~ as.numeric(time)|subDay),
                 data=cloth, method="ML")
 summary(mod_autarima)
-mod_autgauss <- lme(clo~tOut + tInOp + sex + tOut:sex + tInOp:sex ,random =~ 1|subDay,
+mod_autgauss <- lme(clo~(tOut+tInOp+ sex)^2 ,random =~ 1|subDay,
                     correlation = corGaus(form =~ as.numeric(time)|subDay),
                     data=cloth, method="ML")
-mod_autexp <- lme(clo~tOut + tInOp + sex + tOut:sex + tInOp:sex ,random =~ 1|subDay,
+mod_autexp <- lme(clo~(tOut+tInOp+ sex)^2 ,random =~ 1|subDay,
                     correlation = corExp(form =~ as.numeric(time)|subDay),
                     data=cloth, method="ML")
-mod_autcompsymm <- lme(clo~tOut + tInOp + sex + tOut:sex + tInOp:sex ,random =~ 1|subDay,
+mod_autcompsymm <- lme(clo~(tOut+tInOp+ sex)^2 ,random =~ 1|subDay,
                   correlation = corCompSymm(form =~ as.numeric(time)|subDay),
                  data=cloth, method="ML")
 #Doesn't work
-mod_autarma<- lme(clo~tOut + tInOp + sex + tOut:sex + tInOp:sex ,random =~ 1|subDay,
+mod_autarma<- lme(clo~(tOut+tInOp+ sex)^2 ,random =~ 1|subDay,
                        correlation = corARMA(form =~ as.numeric(time)|subDay),
                        data=cloth, method="ML")
 ##
-mod_autlin<- lme(clo~tOut + tInOp + sex + tOut:sex + tInOp:sex ,random =~ 1|subDay,
+mod_autlin<- lme(clo~(tOut+tInOp+ sex)^2 ,random =~ 1|subDay,
                   correlation = corLin(form =~ as.numeric(time)|subDay),
                   data=cloth, method="ML")
-mod_autratio<- lme(clo~tOut + tInOp + sex + tOut:sex + tInOp:sex ,random =~ 1|subDay,
+mod_autratio<- lme(clo~(tOut+tInOp+ sex)^2 ,random =~ 1|subDay,
                  correlation = corRatio(form =~ as.numeric(time)|subDay),
                  data=cloth, method="ML")
-mod_autsphe<- lme(clo~tOut + tInOp + sex + tOut:sex + tInOp:sex ,random =~ 1|subDay,
+mod_autsphe<- lme(clo~(tOut+tInOp+ sex)^2 ,random =~ 1|subDay,
                    correlation = corSpher(form =~ as.numeric(time)|subDay),
                    data=cloth, method="ML")
-anova(mod_autarima, mod_autgauss, mod_autcompsymm, mod_autexp, mod_autlin, mod_autsphe, mod_autratio)
-par(mfrow=c(1,2))
-plot(Variogram(mod_autexp), main = 'Exp')
-plot(Variogram(mod_autratio), main = 'Ratio')
+
+#SAVE THIS TABLE
+AutoCompare <- anova(mod_autarima, mod_autgauss, mod_autcompsymm, mod_autexp, mod_autlin, mod_autsphe, mod_autratio)
+AutoCompare
+write.csv(AutoCompare, "PA4_AutoCompare.csv", row.names=TRUE)
+
+par(mfrow=c(2,2))
+  plot(Variogram(mod_autexp), main = 'Exp') #USE THIS ONE!!!!!!!!!!!!!???
+  plot(Variogram(mod_autratio), main = 'Ratio')
 
 #Aut Exp the best one
+#PART 4 continue
 
+#Reduce model using Chisq and ML for estimation of parameters.
+mod_autexp <- lme(clo~(tOut+tInOp+ sex)^2 ,random =~ 1|subDay,
+                  correlation = corExp(form =~ as.numeric(time)|subDay),
+                  data=cloth, method="ML")
+drop1(mod_autexp, test = "Chisq")
+mod_autexp1 <- update(mod_autexp,.~.-tOut:tInOp)
+drop1(mod_autexp1, test = "Chisq")
+mod_autexp2 <- update(mod_autexp1,.~.-tOut:sex)
+drop1(mod_autexp2, test = "Chisq")
+mod_autexp3 <- update(mod_autexp2,.~.-tOut)
+drop1(mod_autexp3, test = "Chisq")
+summary(mod_autexp3)
+
+mod_autoexp_final <- lme(clo~tInOp+sex+tInOp:sex,random=~1|subDay,
+                         correlation = corExp(form =~ as.numeric(time)|subDay), 
+                         data=cloth, method="REML")
+summary(mod_autoexp_final)
+
+#Plot model and residuals
+plot(mod_autoexp_final)
+rand = ranef(mod_autoexp_final)
+par(mfrow=c(1,2))
+
+qqnorm(resid(mod_autoexp_final))
+qqline(resid(mod_autoexp_final))
+hist(rand$`(Intercept)`, probability = TRUE, col = "gray", main = 'SubDay', xlab = 'Random intercept')
+abline(v = mean(rand$`(Intercept)`), col='red', lwd = 3)
+lines(density(rand$`(Intercept)`), col = 'green', lwd = 3)
+
+shapiro.test(resid(mod_autoexp_final))
+shapiro.test(rand$`(Intercept)`)
+#END PART 4
+
+
+saveFig <- TRUE
+if(saveFig == TRUE){pdf("PA4_autoexpmodel_residuals.pdf", width = 10*0.8, height = 10*0.8)}
+plot(mod_autoexp_final)
+if(saveFig == TRUE){dev.off()}
+saveFig <- FALSE
+
+saveFig <- TRUE
+if(saveFig == TRUE){pdf("PA4_semi_variogram_expon.pdf", width = 10*0.8, height = 10*0.8)}
+plot(Variogram(mod_autexp), main = 'Exp')
+if(saveFig == TRUE){dev.off()}
+saveFig <- FALSE
+
+
+saveFig <- TRUE
+if(saveFig == TRUE){pdf("PA4_QQ_plot_Random_intercepts.pdf", width = 10*0.8, height = 6*0.8)}
+par(mfrow=c(1,2))
+qqnorm(resid(mod_autoexp_final))
+qqline(resid(mod_autoexp_final))
+hist(rand$`(Intercept)`, probability = TRUE, col = "gray", main = 'SubDay', xlab = 'Random intercept')
+abline(v = mean(rand$`(Intercept)`), col='red', lwd = 3)
+lines(density(rand$`(Intercept)`), col = 'green', lwd = 3)
+if(saveFig == TRUE){dev.off()}
+saveFig <- FALSE
+
+par(mfrow=c(1,2))
+qqnorm(resid(mod_autoexp_final))
+qqline(resid(mod_autoexp_final))
+hist(rand$`(Intercept)`, probability = TRUE, col = "gray", main = 'SubDay', xlab = 'Random intercept')
+abline(v = mean(rand$`(Intercept)`), col='red', lwd = 3)
+lines(density(rand$`(Intercept)`), col = 'green', lwd = 3)
+
+qqnorm(rand$`(Intercept)`)
+qqline(rand$`(Intercept)`)
+
+
+
+
+
+
+
+#Lorenzo stuff??
 #Don't know how to remove intercepts here
 modg_autdiag = glmmTMB(clo~tOut + tInOp + sex + tInOp:sex + (1|subDay) + diag(time-1|subDay), family = Gamma(link = "log"),
                      data=cloth)
