@@ -248,6 +248,10 @@ shapiro.test(resid(mod_autoexp_final))
 shapiro.test(rand$`(Intercept)`)
 #END PART 4
 
+preds <- predict(mod_autoexp_final)
+
+plot_df <- data.frame(list(preds = preds, tInOp = tInOp, sex = sex)) 
+summary(mod_autoexp_final)
 
 saveFig <- TRUE
 if(saveFig == TRUE){pdf("PA4_autoexpmodel_residuals.pdf", width = 10*0.8, height = 10*0.8)}

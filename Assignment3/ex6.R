@@ -62,7 +62,7 @@ obj <- MakeADFun(data = data,
                  DLL = "ex6",
                  hessian = TRUE)
 
-opt <- optim(obj$par, obj$fn, gr=obj$gr, method="BFGS")
+opt <- optim(obj$par, obj$fn, gr=obj$gr, method="L-BFGS-B", lower = c(0, -Inf, rep(1e-4, 5)))
 r <- sdreport(obj)
 names(opt$par)
 opt$value
