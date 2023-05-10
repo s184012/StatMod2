@@ -45,7 +45,21 @@ nll <- function(par){
            log=TRUE, checkSymmetry = FALSE)
 }
 
-op1 <- nlminb(c(0.5,1,1,1),nll, lower=c(-1,-Inf,0,0))
+simon_nll <- function(par){
+  beta <- par[1:2]
+  Sigma <- diag(rep(exp(par[3]), nrow(cloth)))
+  sigma_u <- rep(exp(par[4]), nlevels(cloth$subjId))
+  Psi <- diag(sigma_u)
+  
+  X <- model.matrix(~1 + sex, data=cloth)
+  Z <- cbind(
+    model.matrix(~-1 + subjId, data=cloth)
+  )
+  -dmvnorm(cloth$clo, mean = X%*%beta, sigma = Z%*%Psi%*%t(Z) + Sigma, log=T)
+}
+
+op1 <- nlminb(c(0.5, -.1, .1, .1),simon_nll)
+op1$obj
 
 library(lme4)
 (fit0 <- lmer(clo~sex+(1|subjId),REML=FALSE))
@@ -68,8 +82,23 @@ nll <- function(par){
   -dmvnorm(clo, mean = mu, sigma=SIGMA,log=TRUE,checkSymmetry = TRUE)
 }
 
-(op2 <- nlminb(c(0.5,1,1,1,1), nll ,lower=c(-Inf,-Inf,0,0,0)) ) 
-op2
+simon_nll <- function(par){
+  beta <- par[1:2]
+  Sigma <- diag(rep(exp(par[3]), nrow(cloth)))
+  sigma_u <- rep(exp(par[4]), nlevels(cloth$subjId))
+  sigma_v <- rep(exp(par[5]), nlevels(cloth$subDay))
+  Psi <- diag(c(sigma_u, sigma_v))
+  
+  X <- model.matrix(~1 + sex, data=cloth)
+  Z <- cbind(
+    model.matrix(~-1 + subjId, data=cloth),
+    model.matrix(~-1 + subDay, data=cloth)
+  )
+  -dmvnorm(cloth$clo, mean = X%*%beta, sigma = Z%*%Psi%*%t(Z) + Sigma, log=T)
+}
+
+(op2 <- optim(c(0.5,-.1,.05,.1,.1), simon_nll, method="BFGS")) 
+op2$par
 
 library(lme4)
 (fit1 <- lmer(clo~sex+(1|subjId)+(1|subjId:day),REML=FALSE))
@@ -112,12 +141,24 @@ nll <- function(par){
   
   -dmvnorm(clo, mean = mu, sigma=SIGMA,log=TRUE,checkSymmetry = FALSE)
 }
-nll(par = c(-1,-1,.1,.1,.1,.1))
 
-(op3 <- optim(c(0.5,-0.5,1,1,1,.5), nll,
-              lower=c(-5,-5,1e-4,1e-4,1e-4,1e-4), upper = c(rep(1, 5), .99),
-              method = "L-BFGS-B"))
-op3
+simon_nll <- function(par){
+  beta <- par[1:2]
+  alpha <- exp(par[6]) - 1 # In range (-1, inf)
+  weight <- 1 + (cloth$sex=="male")*alpha
+  Sigma <- diag(rep(exp(par[3]), nrow(cloth)))
+  sigma_u <- rep(exp(par[4]), nlevels(cloth$subjId))
+  sigma_v <- rep(exp(par[5]), nlevels(cloth$subDay))
+  Psi <- diag(c(sigma_u, sigma_v))
+  
+  X <- model.matrix(~1 + sex, data=cloth)
+  Z <- cbind(
+    model.matrix(~-1 + subjId, data=cloth),
+    model.matrix(~-1 + subDay, data=cloth)
+  )
+  -dmvnorm(cloth$clo, mean = X%*%beta, sigma = (Z%*%Psi%*%t(Z) + Sigma)*weight, log=T)
+}
+(op3 <- optim(c(0.5, -0.5, 1, 1,1,-.5), nll, method="BFGS"))
 
 library(lme4)
 (fit1 <- lmer(clo~sex+(1|subjId)+(1|subjId:day),REML=FALSE))

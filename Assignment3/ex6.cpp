@@ -22,7 +22,6 @@ template<class Type>
   PARAMETER(sigma_G);                              // Parameter value transmitted from R
   PARAMETER(sigma);                                // Parameter value transmitted from R
   
-  ADREPORT(gamma);
   Type mean_ran = Type(0);
   
   int i, ij;
@@ -45,11 +44,12 @@ template<class Type>
   }
   
   for (int k=0; k < clo.size(); k++){
+    // main contribution
     i = subj[k];
     ij = subDay[k];
-    // main contribution
     f -= dnorm(clo[k], mu + beta*sex[i] + u[i] + v[ij], pow(sigma,2)*(1 - alpha*sex[i])*exp(-gamma[i]), true);
   }
+  ADREPORT(gamma);
   return f;
 }
 
